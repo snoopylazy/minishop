@@ -10,9 +10,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
+  const offset = (page - 1) * limit;
+
   const isStaff = hasRole(auth.staffRole, ['super_admin', 'admin', 'seller']);
 
-  const orders = isStaff
+  const all = isStaff
     ? await db.orm.public.Order
         .include('items')
         .include('payments')
@@ -25,7 +30,9 @@ export async function GET(request: Request) {
         .orderBy((o) => o.createdAt.desc())
         .all();
 
-  return NextResponse.json({ orders });
+  const orders = all.slice(offset, offset + limit);
+
+  return NextResponse.json({ orders, page, limit, total: all.length, hasMore: offset + limit < all.length });
 }
 
 export async function POST(request: Request) {
@@ -91,6 +98,21 @@ export async function POST(request: Request) {
     });
   }
 
+  const shopSettings = await db.orm.public.ShopSettings
+    .orderBy((s) => s.id.asc())
+    .first()
+    .catch(() => null);
+
+  let deliveryFeeCents = shopSettings?.deliveryFeeCents ?? 0;
+  if (
+    deliveryFeeCents > 0 &&
+    shopSettings?.freeDeliveryThresholdCents &&
+    totalCents >= shopSettings.freeDeliveryThresholdCents
+  ) {
+    deliveryFeeCents = 0;
+  }
+  const grandTotalCents = totalCents + deliveryFeeCents;
+
   const orderCode = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto
     .randomBytes(2)
     .toString('hex')
@@ -104,7 +126,7 @@ export async function POST(request: Request) {
     phone: body.phone.trim(),
     address: body.address.trim(),
     note: body.note?.trim() || null,
-    totalCents,
+    totalCents: grandTotalCents,
     currency,
     paymentStatus: 'pending',
     orderStatus: 'new',
@@ -124,7 +146,7 @@ export async function POST(request: Request) {
 
   const paymentInit = await createOrderPaymentQR({
     orderCode,
-    amountCents: totalCents,
+    amountCents: grandTotalCents,
     currency,
   });
 
@@ -133,7 +155,7 @@ export async function POST(request: Request) {
     provider: paymentInit.provider,
     transactionRef: paymentInit.transactionRef,
     qrString: paymentInit.qrString,
-    amountCents: totalCents,
+    amountCents: grandTotalCents,
     status: 'pending',
   });
 
@@ -144,7 +166,10 @@ export async function POST(request: Request) {
         transactionRef: paymentInit.transactionRef,
         provider: paymentInit.provider,
         qrDataUrl: paymentInit.qrDataUrl,
-        amountCents: totalCents,
+        customQrImageUrl: shopSettings?.paymentQrImageUrl ?? null,
+        paymentNote: shopSettings?.paymentNote ?? null,
+        amountCents: grandTotalCents,
+        deliveryFeeCents,
         currency,
       },
     },

@@ -3,6 +3,7 @@ import { db } from '@/prisma/db';
 import { verifyPaymentWebhookSecret } from '@/lib/payment';
 import { getAuthContext, hasRole } from '@/lib/telegram-auth';
 import { notifyCustomerOrderPaid, notifyStaffNewOrder } from '@/lib/bot';
+import { recordAuditLog } from '@/lib/audit';
 
 /**
  * Handles payment confirmation from:
@@ -13,10 +14,11 @@ import { notifyCustomerOrderPaid, notifyStaffNewOrder } from '@/lib/bot';
 export async function POST(request: Request) {
   const hasWebhookSecret = verifyPaymentWebhookSecret(request);
   let isAuthorizedStaff = false;
+  let staffAuth: Awaited<ReturnType<typeof getAuthContext>> = null;
 
   if (!hasWebhookSecret) {
-    const auth = await getAuthContext(request);
-    isAuthorizedStaff = Boolean(auth && hasRole(auth.staffRole, ['super_admin', 'admin', 'seller']));
+    staffAuth = await getAuthContext(request);
+    isAuthorizedStaff = Boolean(staffAuth && hasRole(staffAuth.staffRole, ['super_admin', 'admin', 'seller']));
   }
 
   const isDevManual =
@@ -91,6 +93,18 @@ export async function POST(request: Request) {
       notifyCustomerOrderPaid(order, order.items),
       notifyStaffNewOrder(order, order.items),
     ]);
+
+    if (isAuthorizedStaff && staffAuth) {
+      await recordAuditLog({
+        actorTelegramId: staffAuth.telegramUser.id,
+        actorName: staffAuth.telegramUser.fullName,
+        actorRole: staffAuth.staffRole ?? 'staff',
+        action: 'order.payment_confirmed',
+        targetType: 'order',
+        targetId: order.orderCode,
+        details: `Confirmed payment for ${order.orderCode}`,
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, status: 'paid' });

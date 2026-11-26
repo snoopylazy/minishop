@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { InlineKeyboard } from 'grammy';
 import { db } from '@/prisma/db';
-import { getBot, notifyCustomerOrderStatus } from '@/lib/bot';
+import {
+  getBot,
+  notifyCustomerOrderPaid,
+  notifyCustomerOrderStatus,
+  notifyStaffNewOrder,
+} from '@/lib/bot';
+import { recordAuditLog } from '@/lib/audit';
 
 interface TelegramUpdate {
   message?: {
@@ -11,10 +17,22 @@ interface TelegramUpdate {
   };
   callback_query?: {
     id: string;
-    from: { id: number };
+    from: { id: number; first_name?: string; last_name?: string };
     data?: string;
     message?: { chat: { id: number }; message_id: number };
   };
+}
+
+async function getStaffActorInfo(telegramId: string, fallbackName?: string) {
+  const superAdminId = process.env.SUPER_ADMIN_TELEGRAM_ID?.trim();
+  if (superAdminId && telegramId === superAdminId) {
+    return { name: fallbackName || 'Super Admin', role: 'super_admin' };
+  }
+  const staff = await db.orm.public.StaffUser
+    .where({ telegramId, isActive: true })
+    .first();
+  if (!staff) return null;
+  return { name: staff.name || fallbackName || telegramId, role: staff.role };
 }
 
 async function isAuthorizedStaffTelegramId(telegramId: string): Promise<boolean> {
@@ -62,6 +80,102 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (update.callback_query?.data?.startsWith('confirm_paid:')) {
+    const cq = update.callback_query;
+    const senderId = String(cq.from.id);
+    const allowed = await isAuthorizedStaffTelegramId(senderId);
+
+    if (!allowed) {
+      await bot.api.answerCallbackQuery(cq.id, {
+        text: 'Only active staff can confirm payments.',
+        show_alert: true,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    const orderId = Number((cq.data ?? '').split(':')[1]);
+    if (Number.isInteger(orderId) && orderId > 0) {
+      const order = await db.orm.public.Order
+        .where({ id: orderId })
+        .include('items')
+        .first();
+      if (order && order.paymentStatus !== 'paid') {
+        await db.orm.public.Order.where({ id: orderId }).update({
+          paymentStatus: 'paid',
+          handledByTelegramId: senderId,
+        });
+        await db.orm.public.Payment.where({ orderId }).update({
+          status: 'paid',
+          paidAt: new Date(),
+        });
+        for (const item of order.items) {
+          const product = await db.orm.public.Product.where({ id: item.productId }).first();
+          if (product) {
+            await db.orm.public.Product.where({ id: product.id }).update({
+              stock: Math.max(0, product.stock - item.quantity),
+            });
+          }
+        }
+        await Promise.allSettled([
+          notifyCustomerOrderPaid(order, order.items),
+          notifyStaffNewOrder(order, order.items),
+        ]);
+        const actor = await getStaffActorInfo(senderId, cq.from.first_name);
+        await recordAuditLog({
+          actorTelegramId: senderId,
+          actorName: actor?.name ?? senderId,
+          actorRole: actor?.role ?? 'staff',
+          action: 'order.payment_confirmed_bot',
+          targetType: 'order',
+          targetId: order.orderCode,
+          details: `Confirmed payment for ${order.orderCode} via Telegram Bot`,
+        });
+      }
+      await bot.api.answerCallbackQuery(cq.id, { text: 'Payment confirmed!' });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (update.callback_query?.data?.startsWith('reject_slip:')) {
+    const cq = update.callback_query;
+    const senderId = String(cq.from.id);
+    const allowed = await isAuthorizedStaffTelegramId(senderId);
+
+    if (!allowed) {
+      await bot.api.answerCallbackQuery(cq.id, {
+        text: 'Only active staff can reject slips.',
+        show_alert: true,
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    const orderId = Number((cq.data ?? '').split(':')[1]);
+    if (Number.isInteger(orderId) && orderId > 0) {
+      const order = await db.orm.public.Order.where({ id: orderId }).first();
+      if (order) {
+        await bot.api
+          .sendMessage(
+            order.customerTelegramId,
+            `❌ Your payment slip for order \`${order.orderCode}\` could not be verified. Please check the amount and upload a valid payment slip.`,
+            { parse_mode: 'Markdown' },
+          )
+          .catch(() => {});
+        const actor = await getStaffActorInfo(senderId, cq.from.first_name);
+        await recordAuditLog({
+          actorTelegramId: senderId,
+          actorName: actor?.name ?? senderId,
+          actorRole: actor?.role ?? 'staff',
+          action: 'order.slip_rejected_bot',
+          targetType: 'order',
+          targetId: order.orderCode,
+          details: `Rejected payment slip for ${order.orderCode} via Telegram Bot`,
+        });
+      }
+      await bot.api.answerCallbackQuery(cq.id, { text: 'Slip rejected & customer notified.' });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   if (update.callback_query?.data?.startsWith('order_status:')) {
     const cq = update.callback_query;
     const callbackData = cq.data ?? '';
@@ -95,6 +209,17 @@ export async function POST(request: Request) {
           orderCode: existing.orderCode,
           customerTelegramId: existing.customerTelegramId,
           orderStatus: nextStatus,
+        });
+
+        const actor = await getStaffActorInfo(senderId, cq.from.first_name);
+        await recordAuditLog({
+          actorTelegramId: senderId,
+          actorName: actor?.name ?? senderId,
+          actorRole: actor?.role ?? 'staff',
+          action: 'order.status_updated_bot',
+          targetType: 'order',
+          targetId: existing.orderCode,
+          details: `${existing.orderCode}: ${existing.orderStatus} -> ${nextStatus} (via Telegram Bot)`,
         });
 
         await bot.api.answerCallbackQuery(cq.id, {

@@ -30,7 +30,7 @@ try {
   await targetClient.connect();
 
   const { rows: products } = await localClient.query(
-    'SELECT name, description, "priceCents", currency, stock, "imageUrl", "isActive" FROM "Product" ORDER BY id ASC',
+    'SELECT name, description, category, "priceCents", "compareAtPriceCents", currency, stock, "imageUrl", "isActive" FROM "Product" ORDER BY id ASC',
   );
 
   let copiedProducts = 0;
@@ -41,8 +41,8 @@ try {
     );
     if (existing.rowCount === 0) {
       await targetClient.query(
-        'INSERT INTO "Product" (name, description, "priceCents", currency, stock, "imageUrl", "isActive", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())',
-        [p.name, p.description, p.priceCents, p.currency, p.stock, p.imageUrl, p.isActive],
+        'INSERT INTO "Product" (name, description, category, "priceCents", "compareAtPriceCents", currency, stock, "imageUrl", "isActive", "updatedAt") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())',
+        [p.name, p.description, p.category, p.priceCents, p.compareAtPriceCents, p.currency, p.stock, p.imageUrl, p.isActive],
       );
       copiedProducts++;
     }
@@ -61,7 +61,22 @@ try {
     if ((res.rowCount ?? 0) > 0) copiedStaff++;
   }
 
-  console.log(`Done! Copied ${copiedProducts} new product(s) and ${copiedStaff} new staff user(s).`);
+  const { rows: settings } = await localClient.query(
+    'SELECT "paymentQrImageUrl", "paymentNote", "deliveryFeeCents", "freeDeliveryThresholdCents" FROM "ShopSettings" ORDER BY id ASC LIMIT 1',
+  ).catch(() => ({ rows: [] }));
+
+  if (settings.length > 0) {
+    const existingSettings = await targetClient.query('SELECT id FROM "ShopSettings" LIMIT 1');
+    const st = settings[0];
+    if (existingSettings.rowCount === 0) {
+      await targetClient.query(
+        'INSERT INTO "ShopSettings" ("paymentQrImageUrl", "paymentNote", "deliveryFeeCents", "freeDeliveryThresholdCents", "updatedAt") VALUES ($1, $2, $3, $4, NOW())',
+        [st.paymentQrImageUrl, st.paymentNote, st.deliveryFeeCents ?? 0, st.freeDeliveryThresholdCents],
+      );
+    }
+  }
+
+  console.log(`Done! Copied ${copiedProducts} new product(s), ${copiedStaff} new staff user(s), and synced shop settings.`);
 } finally {
   await localClient.end().catch(() => {});
   await targetClient.end().catch(() => {});

@@ -13,17 +13,19 @@ model StaffUser {
 }
 
 model Product {
-  id          Int                @id @default(autoincrement())
-  name        String
-  description String?
-  priceCents  Int
-  currency    String             @default("USD")
-  stock       Int                @default(0)
-  imageUrl    String?
-  isActive    Boolean            @default(true)
-  orderItems  OrderItem[]
-  createdAt   DateTime           @default(now()) @onCreate(now())
-  updatedAt   temporal.UpdatedAt
+  id                  Int                @id @default(autoincrement())
+  name                String
+  description         String?
+  category            String?
+  priceCents          Int
+  compareAtPriceCents Int?
+  currency            String             @default("USD")
+  stock               Int                @default(0)
+  imageUrl            String?
+  isActive            Boolean            @default(true)
+  orderItems          OrderItem[]
+  createdAt           DateTime           @default(now()) @onCreate(now())
+  updatedAt           temporal.UpdatedAt
 }
 
 model Order {
@@ -69,4 +71,25 @@ model Payment {
   rawPayload     String?
   paidAt         DateTime?
   createdAt      DateTime  @default(now()) @onCreate(now())
+}
+
+model ShopSettings {
+  id                        Int                @id @default(autoincrement())
+  paymentQrImageUrl         String?
+  paymentNote               String?
+  deliveryFeeCents          Int                @default(0)
+  freeDeliveryThresholdCents Int?
+  updatedAt                 temporal.UpdatedAt
+}
+
+model AuditLog {
+  id              Int      @id @default(autoincrement())
+  actorTelegramId String
+  actorName       String
+  actorRole       String
+  action          String
+  targetType      String
+  targetId        String?
+  details         String?
+  createdAt       DateTime @default(now()) @onCreate(now())
 }

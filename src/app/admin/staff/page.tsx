@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { getTelegramAuthHeaders } from '@/lib/client-telegram';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 
 interface StaffUser {
   id: number;
@@ -22,21 +24,37 @@ export default function AdminStaffPage() {
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'admin' | 'seller'>('seller');
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadStaff = async () => {
-    const res = await fetch('/api/staff', { headers: getTelegramAuthHeaders() });
-    if (res.ok) {
-      const data = await res.json();
-      setStaff(data.staff ?? []);
-      setSuperAdminId(data.superAdminTelegramId ?? null);
-    } else {
-      setError('Super Admin access required.');
+  const loadStaff = useCallback(async (pageNum = 1, replace = true) => {
+    if (pageNum > 1) setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/staff?page=${pageNum}&limit=20`, {
+        headers: getTelegramAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStaff((prev) => (replace ? (data.staff ?? []) : [...prev, ...(data.staff ?? [])]));
+        setHasMore(data.hasMore ?? false);
+        setPage(pageNum);
+        setSuperAdminId(data.superAdminTelegramId ?? null);
+      } else {
+        setError('Super Admin access required.');
+      }
+    } finally {
+      setLoadingMore(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadStaff();
-  }, []);
+    loadStaff(1, true);
+  }, [loadStaff]);
+
+  const sentinelRef = useInfiniteScroll(() => {
+    if (!loadingMore && hasMore) loadStaff(page + 1, false);
+  }, hasMore && !loadingMore);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +93,19 @@ export default function AdminStaffPage() {
     });
     if (res.ok) {
       setStaff((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    }
+  };
+
+  const deleteStaff = async (member: StaffUser) => {
+    if (!window.confirm(`Delete ${member.name} (${member.telegramId})?`)) {
+      return;
+    }
+    const res = await fetch(`/api/staff/${member.id}`, {
+      method: 'DELETE',
+      headers: getTelegramAuthHeaders(),
+    });
+    if (res.ok) {
+      setStaff((prev) => prev.filter((s) => s.id !== member.id));
     }
   };
 
@@ -186,10 +217,27 @@ export default function AdminStaffPage() {
                 >
                   {member.isActive ? 'Active' : 'Disabled'}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => deleteStaff(member)}
+                  className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           ))}
         </div>
+
+        <div ref={sentinelRef} className="h-1" />
+        {loadingMore && (
+          <div className="mt-4 flex justify-center py-3">
+            <Loader2 className="h-5 w-5 animate-spin text-sky-500" />
+          </div>
+        )}
+        {!hasMore && staff.length > 0 && (
+          <p className="mt-4 text-center text-xs text-slate-400">All staff loaded</p>
+        )}
       </main>
     </div>
   );

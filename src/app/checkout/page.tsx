@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ArrowLeft, QrCode, Loader2 } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, QrCode, Loader2, Upload, FlaskConical, ShoppingCart, Plus, Minus, Trash2 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { useCart } from '@/components/CartContext';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
@@ -13,20 +13,62 @@ interface CreatedPayment {
   transactionRef: string;
   provider: string;
   qrDataUrl: string;
+  customQrImageUrl?: string | null;
+  paymentNote?: string | null;
   amountCents: number;
   currency: string;
 }
 
+const inputClass =
+  'w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-100 placeholder:text-slate-300';
+
+const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 tracking-wide uppercase';
+
 export default function CheckoutPage() {
-  const { items, totalCents, currency, clearCart } = useCart();
+  const { items, totalCents, currency, updateQuantity, clearCart } = useCart();
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
+  const [deliveryFeeCents, setDeliveryFeeCents] = useState(0);
+  const [freeThresholdCents, setFreeThresholdCents] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<CreatedPayment | null>(null);
   const [paid, setPaid] = useState(false);
+  const [slipSent, setSlipSent] = useState(false);
+  const [uploadingSlip, setUploadingSlip] = useState(false);
+
+  // Load saved customer phone/address & shop delivery fee
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('miniapp_checkout_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved) as { customerName?: string; phone?: string; address?: string };
+        if (parsed.customerName) setCustomerName(parsed.customerName);
+        if (parsed.phone) setPhone(parsed.phone);
+        if (parsed.address) setAddress(parsed.address);
+      }
+    } catch {
+      // Ignore storage error
+    }
+
+    fetch('/api/settings')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setDeliveryFeeCents(data.deliveryFeeCents ?? 0);
+          setFreeThresholdCents(data.freeDeliveryThresholdCents ?? null);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const effectiveDeliveryFee =
+    deliveryFeeCents > 0 && freeThresholdCents && totalCents >= freeThresholdCents
+      ? 0
+      : deliveryFeeCents;
+  const grandTotalCents = totalCents + effectiveDeliveryFee;
 
   // Poll payment status every 3 seconds once QR is displayed
   useEffect(() => {
@@ -77,12 +119,23 @@ export default function CheckoutPage() {
         return;
       }
 
+      try {
+        localStorage.setItem(
+          'miniapp_checkout_profile',
+          JSON.stringify({ customerName, phone, address }),
+        );
+      } catch {
+        // Ignore storage error
+      }
+
       setPaymentInfo({
         orderId: data.order.id,
         orderCode: data.order.orderCode,
         transactionRef: data.payment.transactionRef,
         provider: data.payment.provider,
         qrDataUrl: data.payment.qrDataUrl,
+        customQrImageUrl: data.payment.customQrImageUrl ?? null,
+        paymentNote: data.payment.paymentNote ?? null,
         amountCents: data.payment.amountCents,
         currency: data.payment.currency,
       });
@@ -113,6 +166,57 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleSlipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !paymentInfo) return;
+    setError(null);
+    setUploadingSlip(true);
+
+    try {
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error('Invalid image'));
+          img.onload = () => {
+            const maxSide = 900;
+            const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return reject(new Error('Canvas error'));
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', 0.82));
+          };
+          img.src = String(reader.result);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const res = await fetch(`/api/orders/${paymentInfo.orderId}/slip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getTelegramAuthHeaders(),
+        },
+        body: JSON.stringify({ imageDataUrl }),
+      });
+
+      if (res.ok) {
+        setSlipSent(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? 'Failed to upload payment slip');
+      }
+    } catch {
+      setError('Could not process payment slip image');
+    } finally {
+      setUploadingSlip(false);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-16">
       <TopNav />
@@ -120,168 +224,291 @@ export default function CheckoutPage() {
       <main className="mx-auto max-w-xl px-4 py-5">
         <Link
           href="/"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900"
+          className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-slate-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to shop</span>
         </Link>
 
+        {/* ── PAID SUCCESS ── */}
         {paid && paymentInfo ? (
-          <div className="rounded-2xl border border-emerald-200 bg-white p-6 text-center shadow-sm">
-            <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
-            <h1 className="mt-3 text-xl font-bold text-slate-900">Payment Confirmed!</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Order <span className="font-mono font-semibold">{paymentInfo.orderCode}</span> has been
-              sent to our seller team. You will receive Telegram updates as it ships.
-            </p>
-            <div className="mt-5 flex justify-center gap-3">
+          <div className="overflow-hidden rounded-2xl bg-white border border-emerald-100 shadow-sm">
+            <div className="bg-emerald-50 p-6 text-center">
+              <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                <CheckCircle2 className="h-9 w-9 text-emerald-500" />
+              </div>
+              <h1 className="text-xl font-bold text-slate-900">Payment Confirmed!</h1>
+              <p className="mt-1.5 text-sm text-slate-500">
+                Order <span className="font-mono font-bold text-slate-800">{paymentInfo.orderCode}</span> is on its way to our team.
+              </p>
+              <p className="mt-1 text-xs text-slate-400">You'll get a Telegram update as it ships.</p>
+            </div>
+            <div className="flex gap-3 p-4">
               <Link
                 href="/orders"
-                className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
+                className="btn-press flex-1 rounded-xl bg-sky-500 py-2.5 text-center text-sm font-semibold text-white hover:bg-sky-600 transition-colors"
               >
-                View My Orders
+                My Orders
               </Link>
               <Link
                 href="/"
-                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="btn-press flex-1 rounded-xl border border-slate-200 py-2.5 text-center text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
               >
-                Continue Shopping
+                Keep Shopping
               </Link>
             </div>
           </div>
+
+        /* ── QR CODE SCREEN ── */
         ) : paymentInfo ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-            <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
-              <QrCode className="h-4 w-4" />
-              <span>Scan to Pay ({paymentInfo.provider.toUpperCase()})</span>
+          <div className="overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm">
+            <div className="border-b border-slate-100 p-4 text-center">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-600 mb-3">
+                <QrCode className="h-3.5 w-3.5" />
+                <span>Scan to Pay — {paymentInfo.provider.toUpperCase()}</span>
+              </div>
+              <div className="text-3xl font-bold text-slate-900">
+                {formatMoney(paymentInfo.amountCents, paymentInfo.currency)}
+              </div>
+              <p className="mt-1 text-[11px] text-slate-300 font-mono">Ref: {paymentInfo.transactionRef}</p>
             </div>
 
-            <h1 className="mt-3 text-2xl font-bold text-slate-900">
-              {formatMoney(paymentInfo.amountCents, paymentInfo.currency)}
-            </h1>
-            <p className="text-xs text-slate-500">Ref: {paymentInfo.transactionRef}</p>
-
-            <div className="my-5 flex justify-center">
+            <div className="flex flex-col items-center p-6 pb-4">
               <img
-                src={paymentInfo.qrDataUrl}
+                src={paymentInfo.customQrImageUrl || paymentInfo.qrDataUrl}
                 alt="Payment QR Code"
-                className="h-64 w-64 rounded-2xl border border-slate-200 p-2"
+                className="max-h-72 w-auto rounded-2xl border-4 border-slate-100 p-1"
               />
+              {paymentInfo.paymentNote && (
+                <p className="mt-3 rounded-xl bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600">
+                  {paymentInfo.paymentNote}
+                </p>
+              )}
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
-              <Loader2 className="h-4 w-4 animate-spin text-sky-600" />
-              <span>Waiting for bank confirmation...</span>
+            <div className="flex items-center justify-center gap-2 pb-4 text-xs text-slate-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+              <span>Waiting for bank confirmation…</span>
             </div>
 
             {error && (
-              <p className="mt-3 rounded-lg bg-rose-50 p-2 text-xs text-rose-700">{error}</p>
+              <div className="mx-4 mb-3 rounded-xl bg-rose-50 p-3 text-xs font-medium text-rose-600">
+                {error}
+              </div>
             )}
 
             {paymentInfo.provider === 'manual' && (
-              <button
-                type="button"
-                onClick={handleSimulatePayment}
-                className="mt-5 w-full rounded-xl border border-emerald-300 bg-emerald-50 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
-              >
-                Simulate / Confirm Payment (Dev Test)
-              </button>
+              <div className="space-y-2.5 border-t border-slate-100 p-4">
+                {slipSent ? (
+                  <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>Slip sent to seller — awaiting confirmation!</span>
+                  </div>
+                ) : (
+                  <label className="btn-press flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors">
+                    {uploadingSlip ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                    ) : (
+                      <><Upload className="h-4 w-4" /> Upload Payment Slip</>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSlipUpload}
+                      disabled={uploadingSlip}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleSimulatePayment}
+                  className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-colors"
+                >
+                  <FlaskConical className="h-4 w-4" />
+                  Simulate Payment (Dev)
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!window.confirm(`Cancel order ${paymentInfo.orderCode}?`)) return;
+                    const res = await fetch(`/api/orders/${paymentInfo.orderId}`, {
+                      method: 'DELETE',
+                      headers: getTelegramAuthHeaders(),
+                    });
+                    if (res.ok) {
+                      setPaymentInfo(null);
+                    }
+                  }}
+                  className="w-full rounded-xl py-2 text-xs font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
+                >
+                  Cancel & Remove Order
+                </button>
+              </div>
             )}
           </div>
-        ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-            Your cart is empty.
-          </div>
-        ) : (
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-          >
-            <h1 className="text-lg font-bold text-slate-900">Delivery & Checkout</h1>
 
-            <div className="divide-y divide-slate-100 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
-              {items.map((item) => (
-                <div key={item.id} className="flex justify-between py-1.5">
-                  <span>
-                    {item.name} × {item.quantity}
-                  </span>
-                  <span className="font-semibold">
-                    {formatMoney(item.priceCents * item.quantity, item.currency)}
-                  </span>
+        /* ── EMPTY CART ── */
+        ) : items.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
+            <ShoppingCart className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+            <p className="text-sm text-slate-400">Your cart is empty.</p>
+            <Link href="/" className="mt-4 inline-block text-sm font-semibold text-sky-500 hover:text-sky-600">
+              Browse products →
+            </Link>
+          </div>
+
+        /* ── CHECKOUT FORM ── */
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Order summary */}
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Order Summary</h2>
+              </div>
+              <div className="divide-y divide-slate-50 px-4">
+                {items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-slate-800">{item.name}</p>
+                      <p className="text-xs text-slate-400">
+                        {formatMoney(item.priceCents, item.currency)} each
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        className="rounded-lg border border-slate-200 p-1 text-slate-600 hover:bg-slate-100"
+                        aria-label="Decrease"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="min-w-[20px] text-center text-xs font-bold text-slate-800">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={item.quantity >= item.stock}
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        className="rounded-lg border border-slate-200 p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        aria-label="Increase"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.id, 0)}
+                        className="ml-1 rounded-lg p-1 text-rose-400 hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Remove item"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <span className="min-w-[60px] text-right font-semibold text-slate-900">
+                      {formatMoney(item.priceCents * item.quantity, item.currency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-1.5 border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm">
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>Subtotal</span>
+                  <span>{formatMoney(totalCents, currency)}</span>
                 </div>
-              ))}
-              <div className="flex justify-between pt-2 font-bold text-slate-900">
-                <span>Total</span>
-                <span>{formatMoney(totalCents, currency)}</span>
+                {deliveryFeeCents > 0 && (
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      Delivery Fee
+                      {freeThresholdCents ? ` (Free over ${formatMoney(freeThresholdCents, currency)})` : ''}
+                    </span>
+                    <span className={effectiveDeliveryFee === 0 ? 'font-semibold text-emerald-600' : ''}>
+                      {effectiveDeliveryFee === 0 ? 'FREE' : formatMoney(effectiveDeliveryFee, currency)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-sm font-bold text-slate-900">Total</span>
+                  <span className="text-base font-bold text-sky-600">{formatMoney(grandTotalCents, currency)}</span>
+                </div>
               </div>
             </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                Recipient Name (optional)
-              </label>
-              <input
-                type="text"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Uses your Telegram name if empty"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              />
-            </div>
+            {/* Delivery info */}
+            <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Delivery Info</h2>
+              </div>
+              <div className="space-y-4 p-4">
+                <div>
+                  <label className={labelClass}>Name <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Your name (uses Telegram name if empty)"
+                    className={inputClass}
+                  />
+                </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                Phone Number *
-              </label>
-              <input
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. 012 345 678"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              />
-            </div>
+                <div>
+                  <label className={labelClass}>Phone <span className="text-rose-400">*</span></label>
+                  <input
+                    type="tel"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="012 345 678"
+                    className={inputClass}
+                  />
+                </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                Delivery Address *
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="House #, Street, Sangkat, Khan, City"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              />
-            </div>
+                <div>
+                  <label className={labelClass}>Delivery Address <span className="text-rose-400">*</span></label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="House #, Street, Sangkat, Khan, City"
+                    className={inputClass}
+                  />
+                </div>
 
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                Note for Seller (optional)
-              </label>
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Call before delivery, etc."
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              />
+                <div>
+                  <label className={labelClass}>Note <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Call before delivery, leave at door, etc."
+                    className={inputClass}
+                  />
+                </div>
+              </div>
             </div>
 
             {error && (
-              <p className="rounded-xl bg-rose-50 p-3 text-xs font-medium text-rose-700">
+              <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs font-medium text-rose-600">
                 {error}
-              </p>
+              </div>
             )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:opacity-50"
+              className="btn-press w-full rounded-2xl bg-sky-500 py-3.5 text-sm font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-600 disabled:opacity-50"
             >
-              {submitting ? 'Generating QR...' : `Pay ${formatMoney(totalCents, currency)}`}
+              {submitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating QR…
+                </span>
+              ) : (
+                `Pay ${formatMoney(grandTotalCents, currency)} →`
+              )}
             </button>
           </form>
         )}

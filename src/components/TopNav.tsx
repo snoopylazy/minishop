@@ -2,8 +2,20 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Store, Package, ShieldCheck } from 'lucide-react';
+import { Package, ShieldCheck, ShoppingBag } from 'lucide-react';
 import { getTelegramAuthHeaders, initTelegramWebApp } from '@/lib/client-telegram';
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin: 'Admin',
+  seller: 'Seller',
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  super_admin: 'bg-violet-500 text-white',
+  admin: 'bg-sky-500 text-white',
+  seller: 'bg-emerald-500 text-white',
+};
 
 export function TopNav() {
   const [staffRole, setStaffRole] = useState<string | null>(null);
@@ -21,29 +33,33 @@ export function TopNav() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-slate-900">
-          <Store className="h-5 w-5 text-sky-600" />
-          <span>Mini Shop</span>
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2 group">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-500 text-white shadow-sm shadow-sky-200 group-hover:bg-sky-600 transition-colors">
+            <ShoppingBag className="h-4 w-4" />
+          </span>
+          <span className="font-bold text-slate-900 tracking-tight">Mini Shop</span>
         </Link>
 
-        <nav className="flex items-center gap-3 text-sm font-medium">
+        {/* Nav actions */}
+        <nav className="flex items-center gap-2">
           <Link
             href="/orders"
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-slate-600 hover:bg-slate-100"
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
           >
-            <Package className="h-4 w-4" />
-            <span>Orders</span>
+            <Package className="h-3.5 w-3.5" />
+            <span>My Orders</span>
           </Link>
 
           {staffRole && (
             <Link
               href="/admin"
-              className="flex items-center gap-1 rounded-lg bg-sky-50 px-2.5 py-1.5 text-sky-700 hover:bg-sky-100"
+              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${ROLE_COLORS[staffRole] ?? 'bg-slate-700 text-white'} shadow-sm`}
             >
-              <ShieldCheck className="h-4 w-4" />
-              <span className="capitalize">{staffRole.replace('_', ' ')}</span>
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>{ROLE_LABELS[staffRole] ?? staffRole}</span>
             </Link>
           )}
         </nav>

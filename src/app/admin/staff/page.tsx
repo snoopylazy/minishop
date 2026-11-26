@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -27,6 +27,10 @@ export default function AdminStaffPage() {
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'admin' | 'seller'>('seller');
   const [pin, setPin] = useState('');
+  const [editingPinMember, setEditingPinMember] = useState<StaffUser | null>(null);
+  const [memberPinInput, setMemberPinInput] = useState('');
+  const [memberPinError, setMemberPinError] = useState<string | null>(null);
+  const [savingMemberPin, setSavingMemberPin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -222,13 +226,9 @@ export default function AdminStaffPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    const nextPin = window.prompt(`New PIN for ${member.name} (leave empty to use shop default):`);
-                    if (nextPin === null) return;
-                    if (nextPin.trim() && (nextPin.trim().length < 4 || nextPin.trim().length > 12)) {
-                      window.alert('PIN must be 4 to 12 characters.');
-                      return;
-                    }
-                    updateStaff(member.id, { pin: nextPin.trim() || null });
+                    setEditingPinMember(member);
+                    setMemberPinInput('');
+                    setMemberPinError(null);
                   }}
                   className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
@@ -278,6 +278,87 @@ export default function AdminStaffPage() {
           <p className="mt-4 text-center text-xs text-slate-400">{t('allStaffLoaded')}</p>
         )}
       </main>
+
+      {editingPinMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Set PIN for {editingPinMember.name}</h2>
+                <p className="font-mono text-[11px] text-slate-400">ID: {editingPinMember.telegramId}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingPinMember(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setMemberPinError(null);
+                const trimmed = memberPinInput.trim();
+                if (trimmed.length < 4 || trimmed.length > 12) {
+                  setMemberPinError('PIN must be 4 to 12 characters.');
+                  return;
+                }
+                setSavingMemberPin(true);
+                try {
+                  await updateStaff(editingPinMember.id, { pin: trimmed });
+                  setEditingPinMember(null);
+                } finally {
+                  setSavingMemberPin(false);
+                }
+              }}
+              className="space-y-3"
+            >
+              <input
+                type="password"
+                inputMode="numeric"
+                autoFocus
+                placeholder="New PIN (4-12 digits)"
+                value={memberPinInput}
+                onChange={(e) => setMemberPinInput(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-base font-bold tracking-widest outline-none focus:border-sky-400 focus:bg-white"
+              />
+
+              {memberPinError && (
+                <p className="text-xs font-medium text-rose-600">{memberPinError}</p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={savingMemberPin}
+                  onClick={async () => {
+                    setSavingMemberPin(true);
+                    try {
+                      await updateStaff(editingPinMember.id, { pin: 'OFF' });
+                      setEditingPinMember(null);
+                    } finally {
+                      setSavingMemberPin(false);
+                    }
+                  }}
+                  className="flex-1 rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                >
+                  Turn Off PIN
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMemberPin}
+                  className="flex-1 rounded-xl bg-sky-500 py-2 text-xs font-semibold text-white hover:bg-sky-600 disabled:opacity-50"
+                >
+                  {savingMemberPin ? 'Saving…' : 'Save PIN'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

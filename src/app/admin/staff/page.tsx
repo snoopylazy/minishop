@@ -27,10 +27,13 @@ export default function AdminStaffPage() {
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'admin' | 'seller'>('seller');
   const [pin, setPin] = useState('');
-  const [editingPinMember, setEditingPinMember] = useState<StaffUser | null>(null);
-  const [memberPinInput, setMemberPinInput] = useState('');
-  const [memberPinError, setMemberPinError] = useState<string | null>(null);
-  const [savingMemberPin, setSavingMemberPin] = useState(false);
+  const [editingMember, setEditingMember] = useState<StaffUser | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'seller'>('seller');
+  const [editPinInput, setEditPinInput] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -90,7 +93,14 @@ export default function AdminStaffPage() {
 
   const updateStaff = async (
     id: number,
-    patch: { role?: 'admin' | 'seller'; isActive?: boolean; notifyOrders?: boolean; pin?: string | null },
+    patch: {
+      name?: string;
+      username?: string | null;
+      role?: 'admin' | 'seller';
+      isActive?: boolean;
+      notifyOrders?: boolean;
+      pin?: string | null;
+    },
   ) => {
     const res = await fetch(`/api/staff/${id}`, {
       method: 'PATCH',
@@ -226,13 +236,16 @@ export default function AdminStaffPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setEditingPinMember(member);
-                    setMemberPinInput('');
-                    setMemberPinError(null);
+                    setEditingMember(member);
+                    setEditName(member.name);
+                    setEditUsername(member.username ?? '');
+                    setEditRole(member.role);
+                    setEditPinInput('');
+                    setEditError(null);
                   }}
                   className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  PIN
+                  {t('editBtn')}
                 </button>
                 <button
                   type="button"
@@ -279,17 +292,17 @@ export default function AdminStaffPage() {
         )}
       </main>
 
-      {editingPinMember && (
+      {editingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white p-5 shadow-2xl">
+          <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white p-5 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Set PIN for {editingPinMember.name}</h2>
-                <p className="font-mono text-[11px] text-slate-400">ID: {editingPinMember.telegramId}</p>
+                <h2 className="text-sm font-bold text-slate-900">Edit Staff Details</h2>
+                <p className="font-mono text-[11px] text-slate-400">ID: {editingMember.telegramId}</p>
               </div>
               <button
                 type="button"
-                onClick={() => setEditingPinMember(null)}
+                onClick={() => setEditingMember(null)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
                 aria-label="Close"
               >
@@ -300,47 +313,94 @@ export default function AdminStaffPage() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                setMemberPinError(null);
-                const trimmed = memberPinInput.trim();
-                if (trimmed.length < 4 || trimmed.length > 12) {
-                  setMemberPinError('PIN must be 4 to 12 characters.');
+                setEditError(null);
+                if (!editName.trim()) {
+                  setEditError('Name is required.');
                   return;
                 }
-                setSavingMemberPin(true);
+                const trimmedPin = editPinInput.trim();
+                if (trimmedPin && (trimmedPin.length < 4 || trimmedPin.length > 12)) {
+                  setEditError('PIN must be 4 to 12 characters.');
+                  return;
+                }
+                setSavingEdit(true);
                 try {
-                  await updateStaff(editingPinMember.id, { pin: trimmed });
-                  setEditingPinMember(null);
+                  await updateStaff(editingMember.id, {
+                    name: editName.trim(),
+                    username: editUsername.trim() || null,
+                    role: editRole,
+                    ...(trimmedPin ? { pin: trimmedPin } : {}),
+                  });
+                  setEditingMember(null);
                 } finally {
-                  setSavingMemberPin(false);
+                  setSavingEdit(false);
                 }
               }}
               className="space-y-3"
             >
-              <input
-                type="password"
-                inputMode="numeric"
-                autoFocus
-                placeholder="New PIN (4-12 digits)"
-                value={memberPinInput}
-                onChange={(e) => setMemberPinInput(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-base font-bold tracking-widest outline-none focus:border-sky-400 focus:bg-white"
-              />
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white"
+                />
+              </div>
 
-              {memberPinError && (
-                <p className="text-xs font-medium text-rose-600">{memberPinError}</p>
-              )}
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">
+                  Telegram @username (optional)
+                </label>
+                <input
+                  type="text"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  placeholder="username"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white"
+                />
+              </div>
 
-              <div className="flex gap-2">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">Role</label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as 'admin' | 'seller')}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:bg-white"
+                >
+                  <option value="seller">Seller (Orders & Fulfillment)</option>
+                  <option value="admin">Admin (Products + Orders)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-slate-500">
+                  New PIN (leave empty to keep current)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  placeholder="4-12 digits"
+                  value={editPinInput}
+                  onChange={(e) => setEditPinInput(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm tracking-widest outline-none focus:border-sky-400 focus:bg-white"
+                />
+              </div>
+
+              {editError && <p className="text-xs font-medium text-rose-600">{editError}</p>}
+
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  disabled={savingMemberPin}
+                  disabled={savingEdit}
                   onClick={async () => {
-                    setSavingMemberPin(true);
+                    setSavingEdit(true);
                     try {
-                      await updateStaff(editingPinMember.id, { pin: 'OFF' });
-                      setEditingPinMember(null);
+                      await updateStaff(editingMember.id, { pin: 'OFF' });
+                      setEditingMember(null);
                     } finally {
-                      setSavingMemberPin(false);
+                      setSavingEdit(false);
                     }
                   }}
                   className="flex-1 rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
@@ -349,10 +409,10 @@ export default function AdminStaffPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingMemberPin}
+                  disabled={savingEdit}
                   className="flex-1 rounded-xl bg-sky-500 py-2 text-xs font-semibold text-white hover:bg-sky-600 disabled:opacity-50"
                 >
-                  {savingMemberPin ? 'Saving…' : 'Save PIN'}
+                  {savingEdit ? 'Saving…' : 'Save Changes'}
                 </button>
               </div>
             </form>

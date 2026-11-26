@@ -24,6 +24,7 @@ export async function PATCH(
     notifyOrders?: boolean;
     pin?: string | null;
     name?: string;
+    username?: string | null;
   };
 
   const updateData: {
@@ -32,6 +33,7 @@ export async function PATCH(
     notifyOrders?: boolean;
     pin?: string | null;
     name?: string;
+    username?: string | null;
   } = {};
   if (body.role === 'admin' || body.role === 'seller') {
     updateData.role = body.role;
@@ -47,6 +49,9 @@ export async function PATCH(
   }
   if (typeof body.name === 'string' && body.name.trim()) {
     updateData.name = body.name.trim();
+  }
+  if (body.username !== undefined) {
+    updateData.username = body.username?.trim().replace(/^@/, '') || null;
   }
 
   const updated = await db.orm.public.StaffUser

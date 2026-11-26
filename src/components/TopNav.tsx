@@ -87,7 +87,7 @@ export function TopNav() {
                 className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-semibold transition-colors ${ROLE_COLORS[staffRole] ?? 'bg-slate-700 text-white'} shadow-sm`}
               >
                 <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
-                <span>{ROLE_LABELS[staffRole] ?? staffRole}</span>
+                <span>{staffRole === 'seller' ? t('seller') : t('dashboard')}</span>
               </Link>
             )}
           </nav>
@@ -101,7 +101,7 @@ export function TopNav() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Palette className="h-4 w-4 text-sky-500" />
-                <h2 className="text-sm font-bold text-slate-900">Customize Theme</h2>
+                <h2 className="text-sm font-bold text-slate-900">{t('customizeTheme')}</h2>
               </div>
               <button
                 type="button"
@@ -117,7 +117,7 @@ export function TopNav() {
               {/* Background Color */}
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Background Color
+                  {t('backgroundColor')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {BG_PRESETS.map((preset) => (
@@ -139,7 +139,7 @@ export function TopNav() {
                     </button>
                   ))}
                   <label className="flex cursor-pointer items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                    <span>Custom</span>
+                    <span>{t('customColor')}</span>
                     <input
                       type="color"
                       value={theme.bgColor}
@@ -153,7 +153,7 @@ export function TopNav() {
               {/* Accent Color */}
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Accent Color
+                  {t('accentColor')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   {ACCENT_PRESETS.map((preset) => (
@@ -175,7 +175,7 @@ export function TopNav() {
                     </button>
                   ))}
                   <label className="flex cursor-pointer items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                    <span>Custom</span>
+                    <span>{t('customColor')}</span>
                     <input
                       type="color"
                       value={theme.accentColor}
@@ -193,14 +193,14 @@ export function TopNav() {
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Reset Default</span>
+                  <span>{t('resetDefault')}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowTheme(false)}
                   className="btn-press rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-600"
                 >
-                  Done
+                  {t('done')}
                 </button>
               </div>
             </div>

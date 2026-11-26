@@ -108,7 +108,7 @@ export default function StorefrontPage() {
                     : 'bg-white border border-slate-200 text-slate-500 hover:border-sky-300 hover:text-sky-600'
                 }`}
               >
-                {cat}
+                {cat === 'All' ? t('allCategories') : cat}
               </button>
             ))}
           </div>
@@ -129,7 +129,7 @@ export default function StorefrontPage() {
             <div className="rounded-full bg-slate-100 p-5">
               <Sparkles className="h-8 w-8 text-slate-300" />
             </div>
-            <p className="text-sm text-slate-400">No products in this category yet.</p>
+            <p className="text-sm text-slate-400">{t('noProducts')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -159,14 +159,14 @@ export default function StorefrontPage() {
                     ) : (
                       <div className="flex h-full w-full flex-col items-center justify-center gap-1">
                         <Package className="h-7 w-7 text-slate-300" />
-                        <span className="text-[10px] text-slate-300">No image</span>
+                        <span className="text-[10px] text-slate-300">{t('noImage')}</span>
                       </div>
                     )}
 
                     {/* SALE badge */}
                     {onSale && (
                       <span className="absolute left-2 top-2 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white shadow">
-                        SALE
+                        {t('saleBadge')}
                       </span>
                     )}
 
@@ -174,7 +174,7 @@ export default function StorefrontPage() {
                     {outOfStock && (
                       <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[1px]">
                         <span className="rounded-full bg-slate-800/80 px-3 py-1 text-[11px] font-bold text-white">
-                          Sold Out
+                          {t('soldOut')}
                         </span>
                       </div>
                     )}
@@ -210,7 +210,7 @@ export default function StorefrontPage() {
                         )}
                       </div>
                       {!outOfStock && (
-                        <span className="text-[10px] text-slate-300">{product.stock} left</span>
+                        <span className="text-[10px] text-slate-300">{product.stock} {t('left')}</span>
                       )}
                     </div>
 
@@ -267,7 +267,7 @@ export default function StorefrontPage() {
               </div>
             )}
             {!hasMore && products.length > 0 && visibleProducts.length > 0 && (
-              <p className="mt-4 text-center text-xs text-slate-300">All products loaded</p>
+              <p className="mt-4 text-center text-xs text-slate-300">{t('allProductsLoaded')}</p>
             )}
           </>
         )}
@@ -360,7 +360,7 @@ export default function StorefrontPage() {
                 )}
 
                 <p className="mt-2 text-xs text-slate-400">
-                  {outOfStock ? 'Currently out of stock' : `${selectedProduct.stock} in stock`}
+                  {outOfStock ? t('outOfStock') : `${selectedProduct.stock} ${t('inStock')}`}
                 </p>
 
                 <div className="mt-4">
@@ -371,7 +371,7 @@ export default function StorefrontPage() {
                       onClick={() => addItem(selectedProduct)}
                       className="btn-press w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-600 disabled:bg-slate-100 disabled:text-slate-300"
                     >
-                      {outOfStock ? 'Out of Stock' : 'Add to Cart'}
+                      {outOfStock ? t('outOfStock') : t('addToCart')}
                     </button>
                   ) : (
                     <div className="flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5">
@@ -383,7 +383,7 @@ export default function StorefrontPage() {
                       >
                         <Minus className="h-4 w-4" />
                       </button>
-                      <span className="text-base font-bold text-sky-900">{qty} in cart</span>
+                      <span className="text-base font-bold text-sky-900">{qty} {t('inCart')}</span>
                       <button
                         type="button"
                         disabled={qty >= selectedProduct.stock}

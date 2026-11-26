@@ -286,14 +286,14 @@ export default function OrdersPage() {
               <Package className="h-9 w-9 text-slate-300" />
             </div>
             <div>
-              <p className="font-semibold text-slate-700">No orders yet</p>
-              <p className="mt-0.5 text-sm text-slate-400">Your completed orders will show up here.</p>
+              <p className="font-semibold text-slate-700">{t('noOrders')}</p>
+              <p className="mt-0.5 text-sm text-slate-400">{t('noOrdersDesc')}</p>
             </div>
             <Link
               href="/"
               className="rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors"
             >
-              Start Shopping
+              {t('startShopping')}
             </Link>
           </div>
         ) : (
@@ -312,12 +312,20 @@ export default function OrdersPage() {
                     <span
                       className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${PAYMENT_BADGE[order.paymentStatus] ?? PAYMENT_BADGE['pending']}`}
                     >
-                      {order.paymentStatus}
+                      {order.paymentStatus === 'paid' ? t('paid') : t('pending')}
                     </span>
                     <span
                       className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold capitalize ${STATUS_BADGE[order.orderStatus] ?? STATUS_BADGE['new']}`}
                     >
-                      {order.orderStatus}
+                      {order.orderStatus === 'preparing'
+                        ? t('statusPreparing')
+                        : order.orderStatus === 'shipped'
+                          ? t('statusShipped')
+                          : order.orderStatus === 'delivered'
+                            ? t('statusDelivered')
+                            : order.orderStatus === 'cancelled'
+                              ? t('statusCancelled')
+                              : t('statusNew')}
                     </span>
                   </div>
                 </div>
@@ -392,7 +400,7 @@ export default function OrdersPage() {
             </div>
           )}
             {!hasMore && orders.length > 0 && (
-              <p className="mt-4 text-center text-xs text-slate-300">All orders loaded</p>
+              <p className="mt-4 text-center text-xs text-slate-300">{t('allOrdersLoaded')}</p>
             )}
           </>
         )}
@@ -428,7 +436,7 @@ export default function OrdersPage() {
               ) : (
                 <div className="flex h-44 w-44 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400">
                   <QrCode className="mb-1 h-10 w-10 text-slate-300" />
-                  <span className="text-xs">No QR uploaded by shop</span>
+                  <span className="text-xs">{t('noQrUploaded')}</span>
                 </div>
               )}
 
@@ -448,19 +456,19 @@ export default function OrdersPage() {
                 {slipSent ? (
                   <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>Slip sent to seller — awaiting confirmation!</span>
+                    <span>{t('slipSent')}</span>
                   </div>
                 ) : (
                   <label className="btn-press flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors">
                     {uploadingSlip ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Sending…</span>
+                        <span>{t('sendingSlip')}</span>
                       </>
                     ) : (
                       <>
                         <Upload className="h-4 w-4" />
-                        <span>Upload Payment Slip</span>
+                        <span>{t('uploadSlip')}</span>
                       </>
                     )}
                     <input

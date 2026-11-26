@@ -239,24 +239,24 @@ export default function CheckoutPage() {
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
                 <CheckCircle2 className="h-9 w-9 text-emerald-500" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900">Payment Confirmed!</h1>
+              <h1 className="text-xl font-bold text-slate-900">{t('paymentConfirmed')}</h1>
               <p className="mt-1.5 text-sm text-slate-500">
-                Order <span className="font-mono font-bold text-slate-800">{paymentInfo.orderCode}</span> is on its way to our team.
+                <span className="font-mono font-bold text-slate-800">{paymentInfo.orderCode}</span> {t('paymentConfirmedDesc')}
               </p>
-              <p className="mt-1 text-xs text-slate-400">You'll get a Telegram update as it ships.</p>
+              <p className="mt-1 text-xs text-slate-400">{t('telegramUpdateDesc')}</p>
             </div>
             <div className="flex gap-3 p-4">
               <Link
                 href="/orders"
                 className="btn-press flex-1 rounded-xl bg-sky-500 py-2.5 text-center text-sm font-semibold text-white hover:bg-sky-600 transition-colors"
               >
-                My Orders
+                {t('myOrders')}
               </Link>
               <Link
                 href="/"
                 className="btn-press flex-1 rounded-xl border border-slate-200 py-2.5 text-center text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
               >
-                Keep Shopping
+                {t('keepShopping')}
               </Link>
             </div>
           </div>
@@ -267,7 +267,7 @@ export default function CheckoutPage() {
             <div className="border-b border-slate-100 p-4 text-center">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-600 mb-3">
                 <QrCode className="h-3.5 w-3.5" />
-                <span>Scan to Pay — {paymentInfo.provider.toUpperCase()}</span>
+                <span>{t('scanToPay')} — {paymentInfo.provider.toUpperCase()}</span>
               </div>
               <div className="text-3xl font-bold text-slate-900">
                 {formatMoney(paymentInfo.amountCents, paymentInfo.currency)}
@@ -290,7 +290,7 @@ export default function CheckoutPage() {
 
             <div className="flex items-center justify-center gap-2 pb-4 text-xs text-slate-400">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
-              <span>Waiting for bank confirmation…</span>
+              <span>{t('waitingBank')}</span>
             </div>
 
             {error && (
@@ -304,14 +304,14 @@ export default function CheckoutPage() {
                 {slipSent ? (
                   <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
-                    <span>Slip sent to seller — awaiting confirmation!</span>
+                    <span>{t('slipSent')}</span>
                   </div>
                 ) : (
                   <label className="btn-press flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-500 py-2.5 text-sm font-semibold text-white hover:bg-sky-600 transition-colors">
                     {uploadingSlip ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                      <><Loader2 className="h-4 w-4 animate-spin" /> {t('sendingSlip')}</>
                     ) : (
-                      <><Upload className="h-4 w-4" /> Upload Payment Slip</>
+                      <><Upload className="h-4 w-4" /> {t('uploadSlip')}</>
                     )}
                     <input
                       type="file"
@@ -346,7 +346,7 @@ export default function CheckoutPage() {
                   }}
                   className="w-full rounded-xl py-2 text-xs font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
                 >
-                  Cancel & Remove Order
+                  {t('cancelOrder')}
                 </button>
               </div>
             )}
@@ -356,9 +356,9 @@ export default function CheckoutPage() {
         ) : items.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
             <ShoppingCart className="mx-auto mb-2 h-8 w-8 text-slate-300" />
-            <p className="text-sm text-slate-400">Your cart is empty.</p>
+            <p className="text-sm text-slate-400">{t('emptyCart')}</p>
             <Link href="/" className="mt-4 inline-block text-sm font-semibold text-sky-500 hover:text-sky-600">
-              Browse products →
+              {t('browseProducts')}
             </Link>
           </div>
 
@@ -376,7 +376,7 @@ export default function CheckoutPage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-slate-800">{item.name}</p>
                       <p className="text-xs text-slate-400">
-                        {formatMoney(item.priceCents, item.currency)} each
+                        {formatMoney(item.priceCents, item.currency)} {t('each')}
                       </p>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -424,7 +424,7 @@ export default function CheckoutPage() {
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>
                       {t('deliveryFee')}
-                      {freeThresholdCents ? ` (Free over ${formatMoney(freeThresholdCents, currency)})` : ''}
+                      {freeThresholdCents ? ` (${t('freeOver')} ${formatMoney(freeThresholdCents, currency)})` : ''}
                     </span>
                     <span className={effectiveDeliveryFee === 0 ? 'font-semibold text-emerald-600' : ''}>
                       {effectiveDeliveryFee === 0 ? t('free') : formatMoney(effectiveDeliveryFee, currency)}
@@ -445,18 +445,18 @@ export default function CheckoutPage() {
               </div>
               <div className="space-y-4 p-4">
                 <div>
-                  <label className={labelClass}>Name <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                  <label className={labelClass}>{t('nameLabel')} <span className="text-slate-300 normal-case font-normal">({t('optional')})</span></label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Your name (uses Telegram name if empty)"
+                    placeholder={t('namePlaceholder')}
                     className={inputClass}
                   />
                 </div>
 
                 <div>
-                  <label className={labelClass}>Phone <span className="text-rose-400">*</span></label>
+                  <label className={labelClass}>{t('phone')} <span className="text-rose-400">*</span></label>
                   <input
                     type="tel"
                     required
@@ -468,24 +468,24 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>Delivery Address <span className="text-rose-400">*</span></label>
+                  <label className={labelClass}>{t('address')} <span className="text-rose-400">*</span></label>
                   <textarea
                     required
                     rows={3}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    placeholder="House #, Street, Sangkat, Khan, City"
+                    placeholder={t('addressPlaceholder')}
                     className={inputClass}
                   />
                 </div>
 
                 <div>
-                  <label className={labelClass}>Note <span className="text-slate-300 normal-case font-normal">(optional)</span></label>
+                  <label className={labelClass}>{t('noteLabel')} <span className="text-slate-300 normal-case font-normal">({t('optional')})</span></label>
                   <input
                     type="text"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="Call before delivery, leave at door, etc."
+                    placeholder={t('notePlaceholder')}
                     className={inputClass}
                   />
                 </div>

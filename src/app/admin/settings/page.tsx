@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { QrCode, Upload, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { getTelegramAuthHeaders } from '@/lib/client-telegram';
+import { useLang } from '@/components/LanguageContext';
 
 function resizeQrToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -36,6 +37,7 @@ function resizeQrToDataUrl(file: File): Promise<string> {
 }
 
 export default function AdminSettingsPage() {
+  const { t } = useLang();
   const [qrImageUrl, setQrImageUrl] = useState<string>('');
   const [paymentNote, setPaymentNote] = useState<string>('');
   const [deliveryFee, setDeliveryFee] = useState<string>('0');
@@ -120,16 +122,16 @@ export default function AdminSettingsPage() {
       <main className="mx-auto max-w-xl px-4 py-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Payment QR Code</h1>
+            <h1 className="text-xl font-bold text-slate-900">{t('paymentQrTitle')}</h1>
             <p className="text-xs text-slate-500">
-              Upload your real ABA / Bakong / ACLEDA QR image for customers to scan at checkout.
+              {t('paymentQrSubtitle')}
             </p>
           </div>
           <Link
             href="/admin"
             className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            Back to Orders
+            {t('backToOrders')}
           </Link>
         </div>
 
@@ -151,14 +153,14 @@ export default function AdminSettingsPage() {
               ) : (
                 <div className="flex flex-col items-center gap-2 text-center text-slate-400">
                   <QrCode className="h-12 w-12 text-slate-300" />
-                  <p className="text-xs">No custom QR uploaded yet</p>
+                  <p className="text-xs">{t('noQrYet')}</p>
                 </div>
               )}
 
               <div className="mt-4 flex items-center gap-2">
                 <label className="btn-press inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white hover:bg-sky-600 transition-colors">
                   <Upload className="h-3.5 w-3.5" />
-                  <span>{qrImageUrl ? 'Change QR Image' : 'Upload QR Image'}</span>
+                  <span>{qrImageUrl ? t('changeQrImage') : t('uploadQrImage')}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -177,7 +179,7 @@ export default function AdminSettingsPage() {
                     className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    <span>Remove</span>
+                    <span>{t('remove')}</span>
                   </button>
                 )}
               </div>
@@ -185,7 +187,7 @@ export default function AdminSettingsPage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Account Info / Instructions (optional)
+                {t('accountInfoLabel')}
               </label>
               <input
                 type="text"
@@ -202,7 +204,7 @@ export default function AdminSettingsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Delivery Fee ($)
+                  {t('deliveryFeeDollar')}
                 </label>
                 <input
                   type="number"
@@ -219,7 +221,7 @@ export default function AdminSettingsPage() {
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  Free Over ($ optional)
+                  {t('freeOverDollar')}
                 </label>
                 <input
                   type="number"
@@ -245,7 +247,7 @@ export default function AdminSettingsPage() {
             {saved && (
               <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs font-semibold text-emerald-700">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                <span>Payment QR saved! Customers will see this QR at checkout.</span>
+                <span>{t('qrSavedMsg')}</span>
               </div>
             )}
 
@@ -257,10 +259,10 @@ export default function AdminSettingsPage() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Saving…</span>
+                  <span>{t('savingLabel')}</span>
                 </>
               ) : (
-                <span>Save Payment QR</span>
+                <span>{t('savePaymentQr')}</span>
               )}
             </button>
           </form>

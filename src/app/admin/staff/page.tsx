@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useLang } from '@/components/LanguageContext';
 
 interface StaffUser {
   id: number;
@@ -18,6 +19,7 @@ interface StaffUser {
 }
 
 export default function AdminStaffPage() {
+  const { t } = useLang();
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [superAdminId, setSuperAdminId] = useState<string | null>(null);
   const [telegramId, setTelegramId] = useState('');
@@ -116,10 +118,10 @@ export default function AdminStaffPage() {
       <main className="mx-auto max-w-3xl px-4 py-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Staff & Roles</h1>
+            <h1 className="text-xl font-bold text-slate-900">{t('staffRolesTitle')}</h1>
             {superAdminId && (
               <p className="text-xs text-slate-500">
-                Root Super Admin ID: <span className="font-mono">{superAdminId}</span>
+                {t('rootSuperAdminId')}: <span className="font-mono">{superAdminId}</span>
               </p>
             )}
           </div>
@@ -127,7 +129,7 @@ export default function AdminStaffPage() {
             href="/admin"
             className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
           >
-            Back to Orders
+            {t('backToOrders')}
           </Link>
         </div>
 
@@ -135,7 +137,7 @@ export default function AdminStaffPage() {
           onSubmit={handleCreate}
           className="mb-6 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
         >
-          <h2 className="text-sm font-bold text-slate-900">Add Admin or Seller</h2>
+          <h2 className="text-sm font-bold text-slate-900">{t('addAdminOrSeller')}</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input
               type="text"
@@ -176,7 +178,7 @@ export default function AdminStaffPage() {
             type="submit"
             className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
           >
-            Save Staff Member
+            {t('saveStaffMember')}
           </button>
         </form>
 
@@ -216,7 +218,7 @@ export default function AdminStaffPage() {
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {member.notifyOrders !== false ? 'Alerts ON' : 'Alerts OFF'}
+                  {member.notifyOrders !== false ? t('alertsOn') : t('alertsOff')}
                 </button>
                 <button
                   type="button"
@@ -227,14 +229,14 @@ export default function AdminStaffPage() {
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {member.isActive ? 'Active' : 'Disabled'}
+                  {member.isActive ? t('activeBtn') : t('disabledBtn')}
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteStaff(member)}
                   className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                 >
-                  Delete
+                  {t('deleteLabel')}
                 </button>
               </div>
             </div>
@@ -248,7 +250,7 @@ export default function AdminStaffPage() {
           </div>
         )}
         {!hasMore && staff.length > 0 && (
-          <p className="mt-4 text-center text-xs text-slate-400">All staff loaded</p>
+          <p className="mt-4 text-center text-xs text-slate-400">{t('allStaffLoaded')}</p>
         )}
       </main>
     </div>

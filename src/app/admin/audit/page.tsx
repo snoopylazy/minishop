@@ -6,6 +6,7 @@ import { Loader2, ClipboardList, Search } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useLang } from '@/components/LanguageContext';
 
 interface AuditLogEntry {
   id: number;
@@ -36,6 +37,7 @@ function formatDateTime(iso: string) {
 }
 
 export default function AdminAuditPage() {
+  const { t } = useLang();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -93,16 +95,16 @@ export default function AdminAuditPage() {
       <main className="mx-auto max-w-3xl px-4 py-5">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Staff Audit Log</h1>
+            <h1 className="text-xl font-bold text-slate-900">{t('auditLogTitle')}</h1>
             <p className="text-xs text-slate-500">
-              Track all staff actions across orders, products, roles, and settings.
+              {t('auditLogSubtitle')}
             </p>
           </div>
           <Link
             href="/admin"
             className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
           >
-            Back to Orders
+            {t('backToOrders')}
           </Link>
         </div>
 
@@ -119,24 +121,24 @@ export default function AdminAuditPage() {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by staff name, ID, action, or order code..."
+                  placeholder={t('searchAuditPlaceholder')}
                   className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none focus:border-sky-400"
                 />
               </div>
 
               <div className="flex gap-1.5 overflow-x-auto pb-1">
-                {(['all', 'order', 'product', 'staff', 'settings'] as const).map((t) => (
+                {(['all', 'order', 'product', 'staff', 'settings'] as const).map((typeKey) => (
                   <button
-                    key={t}
+                    key={typeKey}
                     type="button"
-                    onClick={() => setFilterType(t)}
+                    onClick={() => setFilterType(typeKey)}
                     className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold capitalize transition ${
-                      filterType === t
+                      filterType === typeKey
                         ? 'bg-sky-500 text-white'
                         : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    {t === 'all' ? 'All Activity' : t}
+                    {typeKey === 'all' ? t('allActivity') : typeKey}
                   </button>
                 ))}
               </div>
@@ -151,7 +153,7 @@ export default function AdminAuditPage() {
             ) : visibleLogs.length === 0 ? (
               <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center">
                 <ClipboardList className="h-8 w-8 text-slate-300" />
-                <p className="text-sm text-slate-400">No activity recorded yet.</p>
+                <p className="text-sm text-slate-400">{t('noActivityYet')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -197,7 +199,7 @@ export default function AdminAuditPage() {
               </div>
             )}
             {!hasMore && logs.length > 0 && (
-              <p className="mt-4 text-center text-xs text-slate-400">All activity loaded</p>
+              <p className="mt-4 text-center text-xs text-slate-400">{t('allActivityLoaded')}</p>
             )}
           </>
         )}

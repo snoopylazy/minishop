@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useLang } from '@/components/LanguageContext';
 
 interface Product {
   id: number;
@@ -50,6 +51,7 @@ function resizeImageToDataUrl(file: File): Promise<string> {
 }
 
 export default function AdminProductsPage() {
+  const { t } = useLang();
   const [products, setProducts] = useState<Product[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState('');
@@ -217,12 +219,12 @@ export default function AdminProductsPage() {
       <TopNav />
       <main className="mx-auto max-w-3xl px-4 py-5">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-900">Manage Products</h1>
+          <h1 className="text-xl font-bold text-slate-900">{t('manageProducts')}</h1>
           <Link
             href="/admin"
             className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
           >
-            Back to Orders
+            {t('backToOrders')}
           </Link>
         </div>
 
@@ -232,7 +234,7 @@ export default function AdminProductsPage() {
         >
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900">
-              {editingId ? 'Edit Product' : 'Add New Product'}
+              {editingId ? t('editProduct') : t('addNewProduct')}
             </h2>
             {editingId && (
               <button
@@ -240,7 +242,7 @@ export default function AdminProductsPage() {
                 onClick={resetForm}
                 className="text-xs font-semibold text-slate-500 hover:text-slate-800"
               >
-                Cancel Edit
+                {t('cancelEdit')}
               </button>
             )}
           </div>
@@ -249,14 +251,14 @@ export default function AdminProductsPage() {
             <input
               type="text"
               required
-              placeholder="Product name *"
+              placeholder={t('productNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
             />
             <input
               type="text"
-              placeholder="Category (e.g. Drinks, Clothes)"
+              placeholder={t('categoryPlaceholder')}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -266,7 +268,7 @@ export default function AdminProductsPage() {
                 type="number"
                 step="0.01"
                 required
-                placeholder={currency === 'USD' ? 'Price (USD) *' : 'Price (KHR) *'}
+                placeholder={currency === 'USD' ? t('priceUsdPlaceholder') : t('priceKhrPlaceholder')}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -284,7 +286,7 @@ export default function AdminProductsPage() {
             <input
               type="number"
               step="0.01"
-              placeholder="Original price (optional, for Sale)"
+              placeholder={t('originalPricePlaceholder')}
               value={compareAtPrice}
               onChange={(e) => setCompareAtPrice(e.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -292,7 +294,7 @@ export default function AdminProductsPage() {
             <input
               type="number"
               required
-              placeholder="Stock *"
+              placeholder={t('stockPlaceholder')}
               value={stock}
               onChange={(e) => setStock(e.target.value)}
               className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -300,13 +302,13 @@ export default function AdminProductsPage() {
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="Image URL or upload photo ->"
+                placeholder={t('imagePlaceholder')}
                 value={imageUrl.startsWith('data:') ? 'Uploaded photo ready' : imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
               />
               <label className="shrink-0 cursor-pointer rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-                Upload
+                {t('uploadBtn')}
                 <input
                   type="file"
                   accept="image/*"
@@ -319,7 +321,7 @@ export default function AdminProductsPage() {
 
           <input
             type="text"
-            placeholder="Short description (optional)"
+            placeholder={t('descPlaceholder')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -331,7 +333,7 @@ export default function AdminProductsPage() {
             type="submit"
             className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
           >
-            {editingId ? 'Save Changes' : 'Create Product'}
+            {editingId ? t('saveChanges') : t('createProduct')}
           </button>
         </form>
 
@@ -370,7 +372,7 @@ export default function AdminProductsPage() {
                           {formatMoney(product.compareAtPriceCents, product.currency)}
                         </span>
                       )}{' '}
-                    • Stock: {product.stock}
+                    • {t('stockLabel')}: {product.stock}
                   </p>
                 </div>
               </div>
@@ -381,7 +383,7 @@ export default function AdminProductsPage() {
                   onClick={() => startEdit(product)}
                   className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  Edit
+                  {t('editBtn')}
                 </button>
                 <button
                   type="button"
@@ -392,14 +394,14 @@ export default function AdminProductsPage() {
                       : 'bg-slate-100 text-slate-500'
                   }`}
                 >
-                  {product.isActive ? 'Active' : 'Hidden'}
+                  {product.isActive ? t('activeBtn') : t('hiddenBtn')}
                 </button>
                 <button
                   type="button"
                   onClick={() => deleteProduct(product)}
                   className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                 >
-                  Delete
+                  {t('deleteLabel')}
                 </button>
               </div>
             </div>

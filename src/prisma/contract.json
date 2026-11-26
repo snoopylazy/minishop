@@ -767,6 +767,13 @@
                   "kind": "scalar"
                 }
               },
+              "superAdminNotify": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "updatedAt": {
                 "nullable": false,
                 "type": {
@@ -795,6 +802,9 @@
                 },
                 "paymentQrImageUrl": {
                   "column": "paymentQrImageUrl"
+                },
+                "superAdminNotify": {
+                  "column": "superAdminNotify"
                 },
                 "updatedAt": {
                   "column": "updatedAt"
@@ -841,6 +851,13 @@
                 "nullable": false,
                 "type": {
                   "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "notifyOrders": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
                   "kind": "scalar"
                 }
               },
@@ -893,6 +910,9 @@
                 },
                 "name": {
                   "column": "name"
+                },
+                "notifyOrders": {
+                  "column": "notifyOrders"
                 },
                 "role": {
                   "column": "role"
@@ -1457,6 +1477,15 @@
                   "dataType": "pg/text",
                   "nullable": true
                 },
+                "superAdminNotify": {
+                  "codecId": "pg/bool@1",
+                  "dataType": "pg/bool",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nullable": false
+                },
                 "updatedAt": {
                   "codecId": "pg/timestamptz-date@1",
                   "dataType": "pg/timestamptz",
@@ -1517,6 +1546,15 @@
                   "dataType": "pg/text",
                   "nullable": false
                 },
+                "notifyOrders": {
+                  "codecId": "pg/bool@1",
+                  "dataType": "pg/bool",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nullable": false
+                },
                 "role": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -1566,7 +1604,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "453328be1127c5f9d0db3f288e7418b9384911aecd4ace33237424e42ac85718"
+    "storageHash": "4a27f51024806c2dcdc193bd326dc832073c880585f78897ec560c0e516e0df2"
   },
   "execution": {
     "executionHash": "9aec8d3322ebf133c2040a97a2d8570fd629ed344e89268536c67f3e7aee1042",

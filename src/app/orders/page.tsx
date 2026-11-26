@@ -2,13 +2,17 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Package, Loader2, Trash2, QrCode, Upload, CheckCircle2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Package, Loader2, Trash2, QrCode, Upload, CheckCircle2, X, RotateCcw } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useCart, type CartProduct } from '@/components/CartContext';
+import { useLang } from '@/components/LanguageContext';
 
 interface OrderItem {
   id: number;
+  productId: number;
   productName: string;
   quantity: number;
   unitPriceCents: number;
@@ -47,7 +51,57 @@ function formatDate(iso: string) {
   });
 }
 
+const STATUS_STEPS = ['new', 'preparing', 'shipped', 'delivered'] as const;
+
+function OrderProgressBar({ status, t }: { status: string; t: (k: 'statusNew' | 'statusPreparing' | 'statusShipped' | 'statusDelivered' | 'statusCancelled') => string }) {
+  if (status === 'cancelled') {
+    return (
+      <div className="mt-2.5 rounded-lg bg-slate-100 px-3 py-1.5 text-center text-[11px] font-semibold text-slate-500">
+        {t('statusCancelled')}
+      </div>
+    );
+  }
+  const activeIdx = Math.max(0, STATUS_STEPS.indexOf(status as (typeof STATUS_STEPS)[number]));
+  const labels = [t('statusNew'), t('statusPreparing'), t('statusShipped'), t('statusDelivered')];
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between gap-1">
+        {STATUS_STEPS.map((step, idx) => {
+          const done = idx <= activeIdx;
+          return (
+            <React.Fragment key={step}>
+              <div className="flex flex-col items-center gap-1">
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+                    done ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  {idx + 1}
+                </span>
+                <span className={`text-[10px] font-medium ${done ? 'text-sky-600' : 'text-slate-400'}`}>
+                  {labels[idx]}
+                </span>
+              </div>
+              {idx < STATUS_STEPS.length - 1 && (
+                <div
+                  className={`mb-4 h-0.5 flex-1 rounded-full ${
+                    idx < activeIdx ? 'bg-sky-500' : 'bg-slate-100'
+                  }`}
+                />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OrdersPage() {
+  const router = useRouter();
+  const { addItem, updateQuantity } = useCart();
+  const { t } = useLang();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -59,6 +113,36 @@ export default function OrdersPage() {
   const [uploadingSlip, setUploadingSlip] = useState(false);
   const [slipSent, setSlipSent] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
+  const [reorderingId, setReorderingId] = useState<number | null>(null);
+
+  const handleReorder = async (order: Order) => {
+    setReorderingId(order.id);
+    try {
+      const res = await fetch('/api/products?limit=100');
+      const data = await res.json();
+      const catalog = (data.products ?? []) as CartProduct[];
+      const map = new Map(catalog.map((p) => [p.id, p]));
+
+      let added = 0;
+      for (const item of order.items) {
+        const prod = map.get(item.productId);
+        if (prod && prod.stock > 0) {
+          addItem(prod);
+          if (item.quantity > 1) {
+            updateQuantity(prod.id, Math.min(item.quantity, prod.stock));
+          }
+          added++;
+        }
+      }
+      if (added > 0) {
+        router.push('/checkout');
+      } else {
+        window.alert('These items are currently out of stock.');
+      }
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/settings')
@@ -185,10 +269,10 @@ export default function OrdersPage() {
           className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-slate-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to shop
+          {t('backToShop')}
         </Link>
 
-        <h1 className="mb-4 text-2xl font-bold tracking-tight text-slate-900">My Orders</h1>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-slate-900">{t('myOrders')}</h1>
 
         {loading ? (
           <div className="space-y-3">
@@ -238,7 +322,7 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Items */}
+                {/* Items + Progress Bar */}
                 <div className="px-4 py-2.5">
                   <ul className="space-y-0.5">
                     {order.items.map((item) => (
@@ -248,6 +332,7 @@ export default function OrdersPage() {
                       </li>
                     ))}
                   </ul>
+                  <OrderProgressBar status={order.orderStatus} t={t} />
                 </div>
 
                 {/* Footer */}
@@ -256,7 +341,16 @@ export default function OrdersPage() {
                     <p className="line-clamp-1 max-w-[200px] text-[11px] text-slate-400">{order.address}</p>
                     <p className="text-[11px] text-slate-400">{formatDate(order.createdAt)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={reorderingId === order.id}
+                      onClick={() => handleReorder(order)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>{t('reorder')}</span>
+                    </button>
                     {order.paymentStatus !== 'paid' && order.orderStatus !== 'cancelled' && (
                       <>
                         <button
@@ -269,7 +363,7 @@ export default function OrdersPage() {
                           className="inline-flex items-center gap-1 rounded-lg bg-sky-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600 transition-colors"
                         >
                           <QrCode className="h-3 w-3" />
-                          <span>Pay Now</span>
+                          <span>{t('payNow')}</span>
                         </button>
                         <button
                           type="button"
@@ -277,7 +371,7 @@ export default function OrdersPage() {
                           className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100 transition-colors"
                         >
                           <Trash2 className="h-3 w-3" />
-                          <span>Remove</span>
+                          <span>{t('remove')}</span>
                         </button>
                       </>
                     )}

@@ -22,12 +22,17 @@ declare global {
   }
 }
 
+let telegramInitialized = false;
+
 export function initTelegramWebApp(): TelegramWebApp | null {
   if (typeof window === 'undefined') return null;
   const wa = window.Telegram?.WebApp;
   if (wa) {
-    wa.ready();
-    wa.expand();
+    if (!telegramInitialized) {
+      telegramInitialized = true;
+      wa.ready();
+      wa.expand();
+    }
     return wa;
   }
   return null;

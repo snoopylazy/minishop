@@ -7,6 +7,7 @@ import { TopNav } from '@/components/TopNav';
 import { useCart, type CartProduct } from '@/components/CartContext';
 import { formatMoney } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useLang } from '@/components/LanguageContext';
 
 interface Product extends CartProduct {
   description: string | null;
@@ -24,6 +25,7 @@ export default function StorefrontPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const { items, addItem, updateQuantity, totalCents, totalCount, currency } = useCart();
+  const { t } = useLang();
 
   const fetchProducts = useCallback(async (pageNum: number, replace: boolean) => {
     if (pageNum === 1) setLoading(true); else setLoadingMore(true);
@@ -74,9 +76,9 @@ export default function StorefrontPage() {
       <main className="mx-auto max-w-2xl px-4 py-5">
         {/* Header */}
         <div className="mb-4">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Shop</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t('shopTitle')}</h1>
           <p className="mt-0.5 text-sm text-slate-400">
-            Pick what you love, we'll handle the rest.
+            {t('shopSubtitle')}
           </p>
         </div>
 
@@ -87,7 +89,7 @@ export default function StorefrontPage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
+            placeholder={t('searchPlaceholder')}
             className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
           />
         </div>
@@ -221,7 +223,7 @@ export default function StorefrontPage() {
                           onClick={() => addItem(product)}
                           className="btn-press w-full rounded-xl bg-sky-500 py-2 text-xs font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
                         >
-                          Add to Cart
+                          {outOfStock ? t('outOfStock') : t('addToCart')}
                         </button>
                       ) : (
                         <div className="flex items-center justify-between gap-1 rounded-xl bg-sky-50 border border-sky-100 px-1 py-0.5">
@@ -283,7 +285,7 @@ export default function StorefrontPage() {
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
                   <ShoppingCart className="h-4 w-4" />
                 </span>
-                <span>{totalCount} item{totalCount !== 1 ? 's' : ''}</span>
+                <span>{totalCount} {totalCount !== 1 ? t('items') : t('item')}</span>
               </span>
               <span className="text-base font-bold">{formatMoney(totalCents, currency)}</span>
             </Link>

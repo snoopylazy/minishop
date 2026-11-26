@@ -1,15 +1,16 @@
 // use prisma-8
 
 model StaffUser {
-  id         Int                @id @default(autoincrement())
-  telegramId String             @unique
-  username   String?
-  name       String
-  role       String             @default("seller")
-  isActive   Boolean            @default(true)
-  createdBy  String?
-  createdAt  DateTime           @default(now()) @onCreate(now())
-  updatedAt  temporal.UpdatedAt
+  id           Int                @id @default(autoincrement())
+  telegramId   String             @unique
+  username     String?
+  name         String
+  role         String             @default("seller")
+  isActive     Boolean            @default(true)
+  notifyOrders Boolean            @default(true)
+  createdBy    String?
+  createdAt    DateTime           @default(now()) @onCreate(now())
+  updatedAt    temporal.UpdatedAt
 }
 
 model Product {
@@ -79,6 +80,7 @@ model ShopSettings {
   paymentNote               String?
   deliveryFeeCents          Int                @default(0)
   freeDeliveryThresholdCents Int?
+  superAdminNotify          Boolean            @default(true)
   updatedAt                 temporal.UpdatedAt
 }
 

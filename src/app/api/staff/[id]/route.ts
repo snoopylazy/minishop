@@ -21,15 +21,19 @@ export async function PATCH(
   const body = (await request.json()) as {
     role?: string;
     isActive?: boolean;
+    notifyOrders?: boolean;
     name?: string;
   };
 
-  const updateData: { role?: string; isActive?: boolean; name?: string } = {};
+  const updateData: { role?: string; isActive?: boolean; notifyOrders?: boolean; name?: string } = {};
   if (body.role === 'admin' || body.role === 'seller') {
     updateData.role = body.role;
   }
   if (typeof body.isActive === 'boolean') {
     updateData.isActive = body.isActive;
+  }
+  if (typeof body.notifyOrders === 'boolean') {
+    updateData.notifyOrders = body.notifyOrders;
   }
   if (typeof body.name === 'string' && body.name.trim()) {
     updateData.name = body.name.trim();

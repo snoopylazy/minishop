@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract-types';
 
 export type StorageHash =
-  StorageHashBase<'453328be1127c5f9d0db3f288e7418b9384911aecd4ace33237424e42ac85718'>;
+  StorageHashBase<'4a27f51024806c2dcdc193bd326dc832073c880585f78897ec560c0e516e0df2'>;
 export type ExecutionHash =
   ExecutionHashBase<'9aec8d3322ebf133c2040a97a2d8570fd629ed344e89268536c67f3e7aee1042'>;
 export type ProfileHash =
@@ -383,6 +383,7 @@ export namespace Models {
     id: FieldOutputTypes['public']['ShopSettings']['id'];
     paymentNote: FieldOutputTypes['public']['ShopSettings']['paymentNote'];
     paymentQrImageUrl: FieldOutputTypes['public']['ShopSettings']['paymentQrImageUrl'];
+    superAdminNotify: FieldOutputTypes['public']['ShopSettings']['superAdminNotify'];
     updatedAt: FieldOutputTypes['public']['ShopSettings']['updatedAt'];
     readonly [RelationKeys]?: never;
   };
@@ -392,6 +393,7 @@ export namespace Models {
     id: FieldOutputTypes['public']['StaffUser']['id'];
     isActive: FieldOutputTypes['public']['StaffUser']['isActive'];
     name: FieldOutputTypes['public']['StaffUser']['name'];
+    notifyOrders: FieldOutputTypes['public']['StaffUser']['notifyOrders'];
     role: FieldOutputTypes['public']['StaffUser']['role'];
     telegramId: FieldOutputTypes['public']['StaffUser']['telegramId'];
     updatedAt: FieldOutputTypes['public']['StaffUser']['updatedAt'];
@@ -939,6 +941,16 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly many: false;
                 };
+                readonly superAdminNotify: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                  readonly many: false;
+                };
                 readonly updatedAt: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
@@ -992,6 +1004,16 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly notifyOrders: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
                   readonly many: false;
                 };
                 readonly role: {
@@ -1493,6 +1515,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly superAdminNotify: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly updatedAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -1514,6 +1540,7 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly paymentNote: { readonly column: 'paymentNote' };
                 readonly paymentQrImageUrl: { readonly column: 'paymentQrImageUrl' };
+                readonly superAdminNotify: { readonly column: 'superAdminNotify' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
             };
@@ -1543,6 +1570,10 @@ type ContractBase = Omit<
               readonly name: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly notifyOrders: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
               readonly role: {
                 readonly nullable: false;
@@ -1575,6 +1606,7 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly isActive: { readonly column: 'isActive' };
                 readonly name: { readonly column: 'name' };
+                readonly notifyOrders: { readonly column: 'notifyOrders' };
                 readonly role: { readonly column: 'role' };
                 readonly telegramId: { readonly column: 'telegramId' };
                 readonly updatedAt: { readonly column: 'updatedAt' };

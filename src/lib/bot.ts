@@ -85,11 +85,16 @@ export async function notifyStaffNewOrder(
   const recipientIds = new Set<string>();
   const superAdminId = process.env.SUPER_ADMIN_TELEGRAM_ID?.trim();
   if (superAdminId) {
-    recipientIds.add(superAdminId);
+    const settings = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first().catch(() => null);
+    if (settings?.superAdminNotify !== false) {
+      recipientIds.add(superAdminId);
+    }
   }
 
   try {
-    const activeStaff = await db.orm.public.StaffUser.where({ isActive: true }).all();
+    const activeStaff = await db.orm.public.StaffUser
+      .where({ isActive: true, notifyOrders: true })
+      .all();
     for (const staff of activeStaff) {
       recipientIds.add(staff.telegramId);
     }

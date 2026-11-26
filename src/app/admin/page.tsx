@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Image as ImageIcon, X, CheckCircle2, Bell, BellOff } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -12,6 +12,12 @@ interface OrderItem {
   productName: string;
   quantity: number;
   unitPriceCents: number;
+}
+
+interface PaymentRecord {
+  id: number;
+  status: string;
+  rawPayload: string | null;
 }
 
 interface Order {
@@ -28,11 +34,25 @@ interface Order {
   orderStatus: string;
   createdAt: string;
   items: OrderItem[];
+  payments?: PaymentRecord[];
+}
+
+function getSlipImageUrl(order: Order): string | null {
+  const raw = order.payments?.[0]?.rawPayload;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { slipImageUrl?: string };
+    return parsed.slipImageUrl ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export default function AdminOrdersPage() {
   const [role, setRole] = useState<string | null>(null);
   const [telegramId, setTelegramId] = useState<string | null>(null);
+  const [notifyOrders, setNotifyOrders] = useState<boolean>(true);
+  const [togglingNotify, setTogglingNotify] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -40,6 +60,7 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [viewingSlipOrder, setViewingSlipOrder] = useState<{ order: Order; url: string } | null>(null);
 
   const fetchOrdersPage = useCallback(async (pageNum: number, replace: boolean) => {
     if (pageNum === 1) setLoading(true);
@@ -63,25 +84,29 @@ export default function AdminOrdersPage() {
     setLoading(true);
     try {
       const headers = getTelegramAuthHeaders();
-      const meRes = await fetch('/api/me', { headers });
+      const [meRes, ordersRes] = await Promise.all([
+        fetch('/api/me', { headers }),
+        fetch('/api/orders?page=1&limit=20', { headers }),
+      ]);
       if (!meRes.ok) {
         setRole(null);
-        setLoading(false);
         return;
       }
       const me = await meRes.json();
       setRole(me.staffRole ?? null);
       setTelegramId(me.telegramUser?.id ?? null);
+      setNotifyOrders(me.notifyOrders ?? true);
 
-      if (me.staffRole) {
-        await fetchOrdersPage(1, true);
-      } else {
-        setLoading(false);
+      if (me.staffRole && ordersRes.ok) {
+        const data = await ordersRes.json();
+        setOrders(data.orders ?? []);
+        setHasMore(data.hasMore ?? false);
+        setPage(1);
       }
-    } catch {
+    } finally {
       setLoading(false);
     }
-  }, [fetchOrdersPage]);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -134,6 +159,26 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const toggleMyAlerts = async () => {
+    const next = !notifyOrders;
+    setTogglingNotify(true);
+    try {
+      const res = await fetch('/api/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getTelegramAuthHeaders(),
+        },
+        body: JSON.stringify({ notifyOrders: next }),
+      });
+      if (res.ok) {
+        setNotifyOrders(next);
+      }
+    } finally {
+      setTogglingNotify(false);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-16">
       <TopNav />
@@ -151,18 +196,35 @@ export default function AdminOrdersPage() {
           </div>
         ) : (
           <>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Staff Dashboard</h1>
-                <p className="text-xs text-slate-500">
-                  Signed in as <span className="font-semibold capitalize">{role.replace('_', ' ')}</span>
-                </p>
+            <div className="mb-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h1 className="text-lg sm:text-xl font-bold text-slate-900">Staff Dashboard</h1>
+                  <p className="text-[11px] sm:text-xs text-slate-500">
+                    Signed in as <span className="font-semibold capitalize">{role.replace('_', ' ')}</span>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={togglingNotify}
+                  onClick={toggleMyAlerts}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                    notifyOrders
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                      : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'
+                  }`}
+                  title="Toggle your Telegram order notifications"
+                >
+                  {notifyOrders ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
+                  <span>{notifyOrders ? 'Alerts ON' : 'Alerts OFF'}</span>
+                </button>
               </div>
 
-              <div className="flex gap-2 text-xs font-semibold">
+              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5 text-[11px] font-semibold">
                 <Link
                   href="/admin"
-                  className="rounded-xl bg-sky-600 px-3 py-2 text-white"
+                  className="shrink-0 rounded-lg bg-sky-600 px-2.5 py-1.5 text-white"
                 >
                   Orders
                 </Link>
@@ -170,13 +232,13 @@ export default function AdminOrdersPage() {
                   <>
                     <Link
                       href="/admin/products"
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:bg-slate-50"
+                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
                     >
                       Products
                     </Link>
                     <Link
                       href="/admin/settings"
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:bg-slate-50"
+                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
                     >
                       Payment QR
                     </Link>
@@ -186,13 +248,13 @@ export default function AdminOrdersPage() {
                   <>
                     <Link
                       href="/admin/staff"
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:bg-slate-50"
+                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
                     >
                       Staff & Roles
                     </Link>
                     <Link
                       href="/admin/audit"
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 hover:bg-slate-50"
+                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
                     >
                       Audit Log
                     </Link>
@@ -338,17 +400,33 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                      {order.paymentStatus !== 'paid' ? (
-                        <button
-                          type="button"
-                          onClick={() => confirmManualPaid(order.id)}
-                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                        >
-                          Confirm Paid
-                        </button>
-                      ) : (
-                        <span className="text-xs text-slate-400">Payment verified</span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(() => {
+                          const slipUrl = getSlipImageUrl(order);
+                          return slipUrl ? (
+                            <button
+                              type="button"
+                              onClick={() => setViewingSlipOrder({ order, url: slipUrl })}
+                              className="inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                            >
+                              <ImageIcon className="h-3.5 w-3.5" />
+                              <span>View Slip</span>
+                            </button>
+                          ) : null;
+                        })()}
+
+                        {order.paymentStatus !== 'paid' ? (
+                          <button
+                            type="button"
+                            onClick={() => confirmManualPaid(order.id)}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          >
+                            Confirm Paid
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400">Payment verified</span>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-2">
                         {(role === 'super_admin' || role === 'admin') &&
@@ -392,6 +470,79 @@ export default function AdminOrdersPage() {
           </>
         )}
       </main>
+
+      {viewingSlipOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div>
+                <p className="font-mono text-xs font-bold text-slate-800">
+                  {viewingSlipOrder.order.orderCode}
+                </p>
+                <p className="text-sm font-bold text-sky-600">
+                  {formatMoney(viewingSlipOrder.order.totalCents, viewingSlipOrder.order.currency)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingSlipOrder(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex max-h-[65vh] justify-center overflow-auto bg-slate-50 p-4">
+              <img
+                src={viewingSlipOrder.url}
+                alt="Customer payment slip"
+                className="max-h-[58vh] w-auto rounded-xl border border-slate-200 object-contain shadow-sm"
+              />
+            </div>
+
+            {viewingSlipOrder.order.paymentStatus !== 'paid' && (
+              <div className="flex gap-2.5 border-t border-slate-100 p-4">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const res = await fetch(`/api/orders/${viewingSlipOrder.order.id}`, {
+                      method: 'PATCH',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...getTelegramAuthHeaders(),
+                      },
+                      body: JSON.stringify({ action: 'reject_slip' }),
+                    });
+                    if (res.ok) {
+                      setOrders((prev) =>
+                        prev.map((o) =>
+                          o.id === viewingSlipOrder.order.id ? { ...o, payments: [] } : o,
+                        ),
+                      );
+                      setViewingSlipOrder(null);
+                    }
+                  }}
+                  className="btn-press flex-1 rounded-xl border border-rose-200 bg-rose-50 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-100"
+                >
+                  Reject Slip
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await confirmManualPaid(viewingSlipOrder.order.id);
+                    setViewingSlipOrder(null);
+                  }}
+                  className="btn-press flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Confirm Paid</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

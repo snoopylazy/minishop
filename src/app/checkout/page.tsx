@@ -6,6 +6,7 @@ import { CheckCircle2, ArrowLeft, QrCode, Loader2, Upload, FlaskConical, Shoppin
 import { TopNav } from '@/components/TopNav';
 import { useCart } from '@/components/CartContext';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
+import { useLang } from '@/components/LanguageContext';
 
 interface CreatedPayment {
   orderId: number;
@@ -26,6 +27,7 @@ const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 tracking-w
 
 export default function CheckoutPage() {
   const { items, totalCents, currency, updateQuantity, clearCart } = useCart();
+  const { t } = useLang();
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -227,7 +229,7 @@ export default function CheckoutPage() {
           className="mb-5 inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 hover:text-slate-700 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to shop</span>
+          <span>{t('backToShop')}</span>
         </Link>
 
         {/* ── PAID SUCCESS ── */}
@@ -321,14 +323,14 @@ export default function CheckoutPage() {
                   </label>
                 )}
 
-                <button
+                {/* <button
                   type="button"
                   onClick={handleSimulatePayment}
                   className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-200 py-2.5 text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-colors"
                 >
                   <FlaskConical className="h-4 w-4" />
                   Simulate Payment (Dev)
-                </button>
+                </button> */}
 
                 <button
                   type="button"
@@ -366,7 +368,7 @@ export default function CheckoutPage() {
             {/* Order summary */}
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
               <div className="border-b border-slate-100 px-4 py-3">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Order Summary</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">{t('orderSummary')}</h2>
               </div>
               <div className="divide-y divide-slate-50 px-4">
                 {items.map((item) => (
@@ -415,22 +417,22 @@ export default function CheckoutPage() {
               </div>
               <div className="space-y-1.5 border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm">
                 <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>Subtotal</span>
+                  <span>{t('subtotal')}</span>
                   <span>{formatMoney(totalCents, currency)}</span>
                 </div>
                 {deliveryFeeCents > 0 && (
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>
-                      Delivery Fee
+                      {t('deliveryFee')}
                       {freeThresholdCents ? ` (Free over ${formatMoney(freeThresholdCents, currency)})` : ''}
                     </span>
                     <span className={effectiveDeliveryFee === 0 ? 'font-semibold text-emerald-600' : ''}>
-                      {effectiveDeliveryFee === 0 ? 'FREE' : formatMoney(effectiveDeliveryFee, currency)}
+                      {effectiveDeliveryFee === 0 ? t('free') : formatMoney(effectiveDeliveryFee, currency)}
                     </span>
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-sm font-bold text-slate-900">Total</span>
+                  <span className="text-sm font-bold text-slate-900">{t('total')}</span>
                   <span className="text-base font-bold text-sky-600">{formatMoney(grandTotalCents, currency)}</span>
                 </div>
               </div>
@@ -439,7 +441,7 @@ export default function CheckoutPage() {
             {/* Delivery info */}
             <div className="rounded-2xl border border-slate-100 bg-white shadow-sm overflow-hidden">
               <div className="border-b border-slate-100 px-4 py-3">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Delivery Info</h2>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">{t('deliveryInfo')}</h2>
               </div>
               <div className="space-y-4 p-4">
                 <div>
@@ -504,10 +506,10 @@ export default function CheckoutPage() {
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating QR…
+                  {t('generatingQr')}
                 </span>
               ) : (
-                `Pay ${formatMoney(grandTotalCents, currency)} →`
+                `${t('pay')} ${formatMoney(grandTotalCents, currency)} →`
               )}
             </button>
           </form>

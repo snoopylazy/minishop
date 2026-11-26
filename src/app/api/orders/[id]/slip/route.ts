@@ -27,6 +27,30 @@ export async function POST(
   if (order.customerTelegramId !== auth.telegramUser.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  if (order.paymentStatus === 'paid' || order.orderStatus === 'cancelled') {
+    return NextResponse.json(
+      { error: 'Cannot upload slip for a paid or cancelled order.' },
+      { status: 400 },
+    );
+  }
+
+  const existingPayment = await db.orm.public.Payment.where({ orderId }).first();
+  if (existingPayment?.rawPayload) {
+    try {
+      const parsed = JSON.parse(existingPayment.rawPayload) as { slipUploadedAt?: string };
+      if (parsed.slipUploadedAt) {
+        const elapsedMs = Date.now() - new Date(parsed.slipUploadedAt).getTime();
+        if (elapsedMs < 30_000) {
+          return NextResponse.json(
+            { error: 'Please wait 30 seconds before uploading another slip.' },
+            { status: 429 },
+          );
+        }
+      }
+    } catch {
+      // Ignore malformed payload
+    }
+  }
 
   const body = (await request.json()) as { imageDataUrl?: string };
   if (!body.imageDataUrl?.startsWith('data:image/')) {
@@ -38,13 +62,28 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid image data' }, { status: 400 });
   }
 
+  // Persist slip image on Payment.rawPayload so staff can also view it inside /admin
+  await db.orm.public.Payment.where({ orderId }).update({
+    rawPayload: JSON.stringify({
+      slipImageUrl: body.imageDataUrl,
+      slipUploadedAt: new Date().toISOString(),
+    }),
+  });
+
   const bot = getBot();
   if (bot) {
     const recipientIds = new Set<string>();
     const superAdminId = process.env.SUPER_ADMIN_TELEGRAM_ID?.trim();
-    if (superAdminId) recipientIds.add(superAdminId);
+    if (superAdminId) {
+      const settings = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first().catch(() => null);
+      if (settings?.superAdminNotify !== false) {
+        recipientIds.add(superAdminId);
+      }
+    }
 
-    const activeStaff = await db.orm.public.StaffUser.where({ isActive: true }).all();
+    const activeStaff = await db.orm.public.StaffUser
+      .where({ isActive: true, notifyOrders: true })
+      .all();
     for (const staff of activeStaff) {
       recipientIds.add(staff.telegramId);
     }

@@ -14,6 +14,7 @@ interface StaffUser {
   name: string;
   role: 'admin' | 'seller';
   isActive: boolean;
+  notifyOrders: boolean;
 }
 
 export default function AdminStaffPage() {
@@ -81,7 +82,7 @@ export default function AdminStaffPage() {
 
   const updateStaff = async (
     id: number,
-    patch: { role?: 'admin' | 'seller'; isActive?: boolean },
+    patch: { role?: 'admin' | 'seller'; isActive?: boolean; notifyOrders?: boolean },
   ) => {
     const res = await fetch(`/api/staff/${id}`, {
       method: 'PATCH',
@@ -206,6 +207,17 @@ export default function AdminStaffPage() {
                   <option value="seller">Seller</option>
                   <option value="admin">Admin</option>
                 </select>
+                <button
+                  type="button"
+                  onClick={() => updateStaff(member.id, { notifyOrders: !member.notifyOrders })}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+                    member.notifyOrders !== false
+                      ? 'bg-sky-50 text-sky-700'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {member.notifyOrders !== false ? 'Alerts ON' : 'Alerts OFF'}
+                </button>
                 <button
                   type="button"
                   onClick={() => updateStaff(member.id, { isActive: !member.isActive })}

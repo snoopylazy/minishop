@@ -56,6 +56,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Phone and delivery address are required' }, { status: 400 });
   }
 
+  // Prevent order spam: max 3 active unpaid orders per customer
+  const pendingOrders = await db.orm.public.Order
+    .where({ customerTelegramId: auth.telegramUser.id, paymentStatus: 'pending' })
+    .all();
+  const activeUnpaid = pendingOrders.filter((o) => o.orderStatus !== 'cancelled');
+  if (activeUnpaid.length >= 3) {
+    return NextResponse.json(
+      { error: 'You have 3 unpaid orders. Please pay or remove an unpaid order first.' },
+      { status: 400 },
+    );
+  }
+
   const productIds = body.items.map((item) => Number(item.productId));
   const products = await db.orm.public.Product
     .where((p) => p.id.in(productIds))

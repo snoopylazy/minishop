@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/prisma/db';
 import { getAuthContext, hasRole } from '@/lib/telegram-auth';
-import { notifyCustomerOrderStatus } from '@/lib/bot';
+import { getBot, notifyCustomerOrderStatus } from '@/lib/bot';
 import { recordAuditLog } from '@/lib/audit';
 
 const ALLOWED_STATUSES = ['new', 'preparing', 'shipped', 'delivered', 'cancelled'] as const;
@@ -21,7 +21,39 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
   }
 
-  const body = (await request.json()) as { orderStatus?: string };
+  const body = (await request.json()) as { orderStatus?: string; action?: string };
+
+  if (body.action === 'reject_slip') {
+    const existing = await db.orm.public.Order.where({ id: orderId }).first();
+    if (!existing) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+    await db.orm.public.Payment.where({ orderId }).update({ rawPayload: null });
+
+    const bot = getBot();
+    if (bot) {
+      await bot.api
+        .sendMessage(
+          existing.customerTelegramId,
+          `❌ Your payment slip for order \`${existing.orderCode}\` could not be verified. Please check the amount and upload a valid payment slip.`,
+          { parse_mode: 'Markdown' },
+        )
+        .catch(() => {});
+    }
+
+    await recordAuditLog({
+      actorTelegramId: auth.telegramUser.id,
+      actorName: auth.telegramUser.fullName,
+      actorRole: auth.staffRole ?? 'staff',
+      action: 'order.slip_rejected',
+      targetType: 'order',
+      targetId: existing.orderCode,
+      details: `Rejected payment slip for ${existing.orderCode}`,
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
   if (
     !body.orderStatus ||
     !ALLOWED_STATUSES.includes(body.orderStatus as (typeof ALLOWED_STATUSES)[number])

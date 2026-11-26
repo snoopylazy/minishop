@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist, Geist_Mono, Kantumruy_Pro } from 'next/font/google';
 import './globals.css';
 import { CartProvider } from '@/components/CartContext';
+import { ThemeProvider } from '@/components/ThemeContext';
+import { LanguageProvider } from '@/components/LanguageContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -14,6 +16,12 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+const kantumruyPro = Kantumruy_Pro({
+  variable: '--font-khmer',
+  subsets: ['khmer', 'latin'],
+  weight: ['400', '500', '600', '700'],
+});
+
 export const metadata: Metadata = {
   title: 'Telegram Mini App Store',
   description: 'MVP Telegram Mini App E-Commerce Storefront',
@@ -23,15 +31,19 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${kantumruyPro.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-slate-50 text-slate-900 flex flex-col">
+      <body className="min-h-full text-slate-900 flex flex-col">
         <Script
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
-        <CartProvider>{children}</CartProvider>
+        <LanguageProvider>
+          <ThemeProvider>
+            <CartProvider>{children}</CartProvider>
+          </ThemeProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -30,6 +30,7 @@ interface Order {
 
 export default function AdminOrdersPage() {
   const [role, setRole] = useState<string | null>(null);
+  const [telegramId, setTelegramId] = useState<string | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,6 +45,7 @@ export default function AdminOrdersPage() {
       }
       const me = await meRes.json();
       setRole(me.staffRole ?? null);
+      setTelegramId(me.telegramUser?.id ?? null);
 
       if (me.staffRole) {
         const ordersRes = await fetch('/api/orders', { headers });
@@ -101,7 +103,12 @@ export default function AdminOrdersPage() {
           <div className="h-40 animate-pulse rounded-2xl bg-white" />
         ) : !role ? (
           <div className="rounded-2xl border border-rose-200 bg-white p-6 text-center text-sm text-rose-700">
-            Access denied. Only active Super Admin, Admin, or Seller accounts can view this page.
+            <p>Access denied. Only active Super Admin, Admin, or Seller accounts can view this page.</p>
+            {telegramId && (
+              <p className="mt-2 font-mono text-xs text-slate-600">
+                Your Telegram ID: <strong>{telegramId}</strong>
+              </p>
+            )}
           </div>
         ) : (
           <>

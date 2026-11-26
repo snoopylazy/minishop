@@ -37,18 +37,27 @@ export async function POST(request: Request) {
   const update = (await request.json()) as TelegramUpdate;
 
   if (update.message?.text?.startsWith('/start')) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
     const chatId = update.message.chat.id;
+    const senderId = String(update.message.from?.id ?? chatId);
     const firstName = update.message.from?.first_name ?? 'there';
+    const isStaff = await isAuthorizedStaffTelegramId(senderId);
 
-    const keyboard = appUrl
-      ? new InlineKeyboard().webApp('🛍️ Open Store', appUrl)
-      : undefined;
+    let keyboard: InlineKeyboard | undefined;
+    if (appUrl) {
+      keyboard = new InlineKeyboard().webApp('🛍️ Open Store', appUrl);
+      if (isStaff) {
+        keyboard.row().webApp('🛠️ Admin / Add Products', `${appUrl}/admin`);
+      }
+    }
 
     await bot.api.sendMessage(
       chatId,
-      `Welcome ${firstName}! Tap below to browse products and order directly inside Telegram.`,
-      keyboard ? { reply_markup: keyboard } : undefined,
+      `Welcome ${firstName}! Tap below to browse products and order directly inside Telegram.\n\nYour Telegram ID: \`${senderId}\``,
+      {
+        parse_mode: 'Markdown',
+        ...(keyboard ? { reply_markup: keyboard } : {}),
+      },
     );
     return NextResponse.json({ ok: true });
   }

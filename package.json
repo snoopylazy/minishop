@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@prisma/cli-engine": "^0.10.4",
+    "@tailwindcss/postcss": "^4.3.5",
     "@tailwindcss/turbopack": "4.3.3",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",

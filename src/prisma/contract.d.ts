@@ -18,7 +18,7 @@ import type {
 } from '@prisma/orm-postgres/contract-types';
 
 export type StorageHash =
-  StorageHashBase<'4a27f51024806c2dcdc193bd326dc832073c880585f78897ec560c0e516e0df2'>;
+  StorageHashBase<'3f89b52cbcbd3fd7d487e87274f33e2573dcd383a9fb284bd579404509bb8b37'>;
 export type ExecutionHash =
   ExecutionHashBase<'9aec8d3322ebf133c2040a97a2d8570fd629ed344e89268536c67f3e7aee1042'>;
 export type ProfileHash =
@@ -378,6 +378,7 @@ export namespace Models {
     readonly [RelationKeys]?: 'orderItems';
   };
   export type public_ShopSettings = {
+    adminPin: FieldOutputTypes['public']['ShopSettings']['adminPin'];
     deliveryFeeCents: FieldOutputTypes['public']['ShopSettings']['deliveryFeeCents'];
     freeDeliveryThresholdCents: FieldOutputTypes['public']['ShopSettings']['freeDeliveryThresholdCents'];
     id: FieldOutputTypes['public']['ShopSettings']['id'];
@@ -394,6 +395,7 @@ export namespace Models {
     isActive: FieldOutputTypes['public']['StaffUser']['isActive'];
     name: FieldOutputTypes['public']['StaffUser']['name'];
     notifyOrders: FieldOutputTypes['public']['StaffUser']['notifyOrders'];
+    pin: FieldOutputTypes['public']['StaffUser']['pin'];
     role: FieldOutputTypes['public']['StaffUser']['role'];
     telegramId: FieldOutputTypes['public']['StaffUser']['telegramId'];
     updatedAt: FieldOutputTypes['public']['StaffUser']['updatedAt'];
@@ -903,6 +905,12 @@ type ContractBase = Omit<
             };
             readonly ShopSettings: {
               columns: {
+                readonly adminPin: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly deliveryFeeCents: {
                   readonly dataType: 'pg/int4';
                   readonly codecId: 'pg/int4@1';
@@ -1014,6 +1022,12 @@ type ContractBase = Omit<
                     readonly kind: 'literal';
                     readonly value: DefaultLiteralValue<'pg/bool@1', true>;
                   };
+                  readonly many: false;
+                };
+                readonly pin: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly role: {
@@ -1495,6 +1509,10 @@ type ContractBase = Omit<
           };
           readonly ShopSettings: {
             readonly fields: {
+              readonly adminPin: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly deliveryFeeCents: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -1533,6 +1551,7 @@ type ContractBase = Omit<
               readonly table: 'ShopSettings';
               readonly namespaceId: 'public';
               readonly fields: {
+                readonly adminPin: { readonly column: 'adminPin' };
                 readonly deliveryFeeCents: { readonly column: 'deliveryFeeCents' };
                 readonly freeDeliveryThresholdCents: {
                   readonly column: 'freeDeliveryThresholdCents';
@@ -1575,6 +1594,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
+              readonly pin: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly role: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1607,6 +1630,7 @@ type ContractBase = Omit<
                 readonly isActive: { readonly column: 'isActive' };
                 readonly name: { readonly column: 'name' };
                 readonly notifyOrders: { readonly column: 'notifyOrders' };
+                readonly pin: { readonly column: 'pin' };
                 readonly role: { readonly column: 'role' };
                 readonly telegramId: { readonly column: 'telegramId' };
                 readonly updatedAt: { readonly column: 'updatedAt' };

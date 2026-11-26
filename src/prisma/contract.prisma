@@ -8,6 +8,7 @@ model StaffUser {
   role         String             @default("seller")
   isActive     Boolean            @default(true)
   notifyOrders Boolean            @default(true)
+  pin          String?
   createdBy    String?
   createdAt    DateTime           @default(now()) @onCreate(now())
   updatedAt    temporal.UpdatedAt
@@ -81,6 +82,7 @@ model ShopSettings {
   deliveryFeeCents          Int                @default(0)
   freeDeliveryThresholdCents Int?
   superAdminNotify          Boolean            @default(true)
+  adminPin                  String?
   updatedAt                 temporal.UpdatedAt
 }
 

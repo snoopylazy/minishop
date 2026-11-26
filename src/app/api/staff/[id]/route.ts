@@ -22,10 +22,17 @@ export async function PATCH(
     role?: string;
     isActive?: boolean;
     notifyOrders?: boolean;
+    pin?: string | null;
     name?: string;
   };
 
-  const updateData: { role?: string; isActive?: boolean; notifyOrders?: boolean; name?: string } = {};
+  const updateData: {
+    role?: string;
+    isActive?: boolean;
+    notifyOrders?: boolean;
+    pin?: string | null;
+    name?: string;
+  } = {};
   if (body.role === 'admin' || body.role === 'seller') {
     updateData.role = body.role;
   }
@@ -34,6 +41,9 @@ export async function PATCH(
   }
   if (typeof body.notifyOrders === 'boolean') {
     updateData.notifyOrders = body.notifyOrders;
+  }
+  if (body.pin !== undefined) {
+    updateData.pin = body.pin?.trim() || null;
   }
   if (typeof body.name === 'string' && body.name.trim()) {
     updateData.name = body.name.trim();

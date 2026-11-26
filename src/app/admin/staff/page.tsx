@@ -26,6 +26,7 @@ export default function AdminStaffPage() {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<'admin' | 'seller'>('seller');
+  const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -68,13 +69,14 @@ export default function AdminStaffPage() {
         'Content-Type': 'application/json',
         ...getTelegramAuthHeaders(),
       },
-      body: JSON.stringify({ telegramId, name, username, role }),
+      body: JSON.stringify({ telegramId, name, username, role, pin: pin.trim() || undefined }),
     });
 
     if (res.ok) {
       setTelegramId('');
       setName('');
       setUsername('');
+      setPin('');
       await loadStaff();
     } else {
       const data = await res.json().catch(() => ({}));
@@ -84,7 +86,7 @@ export default function AdminStaffPage() {
 
   const updateStaff = async (
     id: number,
-    patch: { role?: 'admin' | 'seller'; isActive?: boolean; notifyOrders?: boolean },
+    patch: { role?: 'admin' | 'seller'; isActive?: boolean; notifyOrders?: boolean; pin?: string | null },
   ) => {
     const res = await fetch(`/api/staff/${id}`, {
       method: 'PATCH',
@@ -170,6 +172,14 @@ export default function AdminStaffPage() {
               <option value="seller">Seller (Orders & Fulfillment)</option>
               <option value="admin">Admin (Products + Orders)</option>
             </select>
+            <input
+              type="password"
+              inputMode="numeric"
+              placeholder="Personal PIN (4-12 digits, optional)"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm sm:col-span-2"
+            />
           </div>
 
           {error && <p className="text-xs text-rose-600">{error}</p>}
@@ -209,6 +219,21 @@ export default function AdminStaffPage() {
                   <option value="seller">Seller</option>
                   <option value="admin">Admin</option>
                 </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextPin = window.prompt(`New PIN for ${member.name} (leave empty to use shop default):`);
+                    if (nextPin === null) return;
+                    if (nextPin.trim() && (nextPin.trim().length < 4 || nextPin.trim().length > 12)) {
+                      window.alert('PIN must be 4 to 12 characters.');
+                      return;
+                    }
+                    updateStaff(member.id, { pin: nextPin.trim() || null });
+                  }}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  PIN
+                </button>
                 <button
                   type="button"
                   onClick={() => updateStaff(member.id, { notifyOrders: !member.notifyOrders })}

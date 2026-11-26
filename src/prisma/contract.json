@@ -732,6 +732,13 @@
           },
           "ShopSettings": {
             "fields": {
+              "adminPin": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "deliveryFeeCents": {
                 "nullable": false,
                 "type": {
@@ -788,6 +795,9 @@
             "relations": {},
             "storage": {
               "fields": {
+                "adminPin": {
+                  "column": "adminPin"
+                },
                 "deliveryFeeCents": {
                   "column": "deliveryFeeCents"
                 },
@@ -861,6 +871,13 @@
                   "kind": "scalar"
                 }
               },
+              "pin": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "role": {
                 "nullable": false,
                 "type": {
@@ -913,6 +930,9 @@
                 },
                 "notifyOrders": {
                   "column": "notifyOrders"
+                },
+                "pin": {
+                  "column": "pin"
                 },
                 "role": {
                   "column": "role"
@@ -1444,6 +1464,11 @@
             },
             "ShopSettings": {
               "columns": {
+                "adminPin": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "deliveryFeeCents": {
                   "codecId": "pg/int4@1",
                   "dataType": "pg/int4",
@@ -1555,6 +1580,11 @@
                   },
                   "nullable": false
                 },
+                "pin": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "role": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -1604,7 +1634,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "4a27f51024806c2dcdc193bd326dc832073c880585f78897ec560c0e516e0df2"
+    "storageHash": "3f89b52cbcbd3fd7d487e87274f33e2573dcd383a9fb284bd579404509bb8b37"
   },
   "execution": {
     "executionHash": "9aec8d3322ebf133c2040a97a2d8570fd629ed344e89268536c67f3e7aee1042",

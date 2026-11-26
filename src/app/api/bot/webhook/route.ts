@@ -80,6 +80,79 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
+  if (update.message?.text?.startsWith('/setpin')) {
+    const chatId = update.message.chat.id;
+    const senderId = String(update.message.from?.id ?? chatId);
+    const superAdminId = process.env.SUPER_ADMIN_TELEGRAM_ID?.trim();
+
+    if (!superAdminId || senderId !== superAdminId) {
+      await bot.api.sendMessage(chatId, '❌ Only the Super Admin can change Staff PINs.');
+      return NextResponse.json({ ok: true });
+    }
+
+    const args = update.message.text.replace(/^\/setpin\s*/i, '').trim().split(/\s+/).filter(Boolean);
+
+    // /setpin <telegramId> <newPin>  OR  /setpin <newPin> (for Super Admin)
+    if (args.length === 2) {
+      const [targetTelegramId, newPin] = args;
+      if (newPin.length < 4 || newPin.length > 12) {
+        await bot.api.sendMessage(chatId, 'PIN must be 4 to 12 characters.');
+        return NextResponse.json({ ok: true });
+      }
+      const staff = await db.orm.public.StaffUser.where({ telegramId: targetTelegramId }).first();
+      if (!staff) {
+        await bot.api.sendMessage(chatId, `❌ Staff user \`${targetTelegramId}\` not found.`, {
+          parse_mode: 'Markdown',
+        });
+        return NextResponse.json({ ok: true });
+      }
+      await db.orm.public.StaffUser.where({ id: staff.id }).update({ pin: newPin });
+      await recordAuditLog({
+        actorTelegramId: senderId,
+        actorName: update.message.from?.first_name ?? 'Super Admin',
+        actorRole: 'super_admin',
+        action: 'staff.pin_updated',
+        targetType: 'staff',
+        targetId: targetTelegramId,
+        details: `Updated PIN for ${staff.name} (${targetTelegramId}) via /setpin`,
+      });
+      await bot.api.sendMessage(chatId, `✅ PIN updated for *${staff.name}* (\`${targetTelegramId}\`)!`, {
+        parse_mode: 'Markdown',
+      });
+      return NextResponse.json({ ok: true });
+    }
+
+    const newPin = args[0] ?? '';
+    if (newPin.length < 4 || newPin.length > 12) {
+      await bot.api.sendMessage(
+        chatId,
+        'Usage:\n• `/setpin 5678` (your Super Admin PIN)\n• `/setpin 123456789 5678` (for a staff user)',
+        { parse_mode: 'Markdown' },
+      );
+      return NextResponse.json({ ok: true });
+    }
+
+    const existing = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first();
+    if (existing) {
+      await db.orm.public.ShopSettings.where({ id: existing.id }).update({ adminPin: newPin });
+    } else {
+      await db.orm.public.ShopSettings.create({ adminPin: newPin });
+    }
+
+    await recordAuditLog({
+      actorTelegramId: senderId,
+      actorName: update.message.from?.first_name ?? 'Super Admin',
+      actorRole: 'super_admin',
+      action: 'settings.pin_updated',
+      targetType: 'settings',
+      targetId: 'admin_pin',
+      details: 'Updated Super Admin PIN via Telegram /setpin',
+    });
+
+    await bot.api.sendMessage(chatId, '✅ Super Admin PIN updated!');
+    return NextResponse.json({ ok: true });
+  }
+
   if (update.callback_query?.data?.startsWith('confirm_paid:')) {
     const cq = update.callback_query;
     const senderId = String(cq.from.id);

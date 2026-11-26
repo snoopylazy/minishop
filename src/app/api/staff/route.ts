@@ -41,11 +41,13 @@ export async function POST(request: Request) {
     name?: string;
     username?: string;
     role?: string;
+    pin?: string;
   };
 
   const telegramId = body.telegramId?.trim();
   const name = body.name?.trim();
   const role = body.role === 'admin' ? 'admin' : body.role === 'seller' ? 'seller' : null;
+  const pin = body.pin?.trim() || null;
 
   if (!telegramId || !name || !role) {
     return NextResponse.json(
@@ -61,6 +63,7 @@ export async function POST(request: Request) {
       username: body.username?.trim().replace(/^@/, '') || null,
       role,
       isActive: true,
+      ...(pin ? { pin } : {}),
     });
     await recordAuditLog({
       actorTelegramId: auth.telegramUser.id,
@@ -79,6 +82,7 @@ export async function POST(request: Request) {
     name,
     username: body.username?.trim().replace(/^@/, '') || null,
     role,
+    pin,
     isActive: true,
     createdBy: auth.telegramUser.id,
   });

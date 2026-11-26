@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Loader2, Image as ImageIcon, X, CheckCircle2, Bell, BellOff } from 'lucide-react';
+import { Loader2, Image as ImageIcon, X, CheckCircle2, Bell, BellOff, Lock } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
@@ -50,11 +50,16 @@ function getSlipImageUrl(order: Order): string | null {
 }
 
 export default function AdminOrdersPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [role, setRole] = useState<string | null>(null);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [notifyOrders, setNotifyOrders] = useState<boolean>(true);
   const [togglingNotify, setTogglingNotify] = useState(false);
+  const [hasPin, setHasPin] = useState<boolean>(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [savingPin, setSavingPin] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -98,6 +103,7 @@ export default function AdminOrdersPage() {
       setRole(me.staffRole ?? null);
       setTelegramId(me.telegramUser?.id ?? null);
       setNotifyOrders(me.notifyOrders ?? true);
+      setHasPin(me.hasPin ?? false);
 
       if (me.staffRole && ordersRes.ok) {
         const data = await ordersRes.json();
@@ -207,20 +213,39 @@ export default function AdminOrdersPage() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={togglingNotify}
-                  onClick={toggleMyAlerts}
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
-                    notifyOrders
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                      : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                  title="Toggle your Telegram order notifications"
-                >
-                  {notifyOrders ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
-                  <span>{notifyOrders ? t('alertsOn') : t('alertsOff')}</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPin('');
+                      setPinError(null);
+                      setShowPinModal(true);
+                    }}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                      hasPin
+                        ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                    title="Manage your PIN"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                    <span>{hasPin ? 'PIN ON' : 'PIN OFF'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={togglingNotify}
+                    onClick={toggleMyAlerts}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                      notifyOrders
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                    title="Toggle your Telegram order notifications"
+                  >
+                    {notifyOrders ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
+                    <span>{notifyOrders ? t('alertsOn') : t('alertsOff')}</span>
+                  </button>
+                </div>
               </div>
 
               <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5 text-[11px] font-semibold">
@@ -542,6 +567,106 @@ export default function AdminOrdersPage() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-xs overflow-hidden rounded-2xl bg-white p-5 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-slate-900">
+                {lang === 'km' ? 'គ្រប់គ្រងលេខកូដ PIN ផ្ទាល់ខ្លួន' : 'My Staff PIN'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowPinModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setPinError(null);
+                if (newPin.trim().length < 4 || newPin.trim().length > 12) {
+                  setPinError(lang === 'km' ? 'PIN ត្រូវមាន 4 ទៅ 12 ខ្ទង់' : 'PIN must be 4-12 characters');
+                  return;
+                }
+                setSavingPin(true);
+                try {
+                  const res = await fetch('/api/me', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
+                    body: JSON.stringify({ pin: newPin.trim() }),
+                  });
+                  if (res.ok) {
+                    setHasPin(true);
+                    try { sessionStorage.setItem('miniapp_admin_unlocked', '1'); } catch {}
+                    setShowPinModal(false);
+                  } else {
+                    const data = await res.json().catch(() => ({}));
+                    setPinError(data.error ?? 'Failed to save PIN');
+                  }
+                } finally {
+                  setSavingPin(false);
+                }
+              }}
+              className="space-y-3"
+            >
+              <input
+                type="password"
+                inputMode="numeric"
+                placeholder={lang === 'km' ? 'បញ្ចូល PIN ថ្មី (4-12 ខ្ទង់)' : 'New PIN (4-12 characters)'}
+                value={newPin}
+                onChange={(e) => setNewPin(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-base font-bold tracking-widest outline-none focus:border-sky-400 focus:bg-white"
+              />
+
+              {pinError && <p className="text-xs font-medium text-rose-600">{pinError}</p>}
+
+              <div className="flex gap-2">
+                {hasPin && (
+                  <button
+                    type="button"
+                    disabled={savingPin}
+                    onClick={async () => {
+                      setSavingPin(true);
+                      try {
+                        const res = await fetch('/api/me', {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
+                          body: JSON.stringify({ pin: null }),
+                        });
+                        if (res.ok) {
+                          setHasPin(false);
+                          setShowPinModal(false);
+                        }
+                      } finally {
+                        setSavingPin(false);
+                      }
+                    }}
+                    className="flex-1 rounded-xl border border-rose-200 bg-rose-50 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
+                  >
+                    {lang === 'km' ? 'បិទ PIN' : 'Turn Off PIN'}
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  disabled={savingPin}
+                  className="flex-1 rounded-xl bg-sky-500 py-2 text-xs font-semibold text-white hover:bg-sky-600 disabled:opacity-50"
+                >
+                  {savingPin
+                    ? lang === 'km' ? 'កំពុងរក្សាទុក…' : 'Saving…'
+                    : hasPin
+                      ? lang === 'km' ? 'កែប្រែ PIN' : 'Update PIN'
+                      : lang === 'km' ? 'បើក PIN' : 'Set PIN'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

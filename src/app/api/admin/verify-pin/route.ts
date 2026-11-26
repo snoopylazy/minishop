@@ -10,6 +10,7 @@ async function getExpectedPinForUser(telegramId: string, staffRole: string | nul
       .first()
       .catch(() => null);
     const userPin = staff?.pin?.trim();
+    if (userPin === 'OFF') return null;
     if (userPin) return userPin;
   }
 
@@ -18,6 +19,7 @@ async function getExpectedPinForUser(telegramId: string, staffRole: string | nul
     .first()
     .catch(() => null);
   const dbPin = settings?.adminPin?.trim();
+  if (dbPin === 'OFF') return null;
   if (dbPin) return dbPin;
 
   return process.env.ADMIN_PIN?.trim() || null;

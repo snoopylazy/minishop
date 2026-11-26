@@ -9,15 +9,25 @@ export async function GET(request: Request) {
   }
 
   let notifyOrders = true;
+  let hasPin = Boolean(process.env.ADMIN_PIN?.trim());
+
+  const settings = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first().catch(() => null);
+  if (settings?.adminPin === 'OFF') {
+    hasPin = false;
+  } else if (settings?.adminPin) {
+    hasPin = true;
+  }
+
   if (auth.staffRole === 'super_admin') {
-    const settings = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first().catch(() => null);
     notifyOrders = settings?.superAdminNotify ?? true;
   } else if (auth.staffRole) {
     const staff = await db.orm.public.StaffUser.where({ telegramId: auth.telegramUser.id }).first().catch(() => null);
     notifyOrders = staff?.notifyOrders ?? true;
+    if (staff?.pin === 'OFF') hasPin = false;
+    else if (staff?.pin) hasPin = true;
   }
 
-  return NextResponse.json({ ...auth, notifyOrders });
+  return NextResponse.json({ ...auth, notifyOrders, hasPin });
 }
 
 export async function PATCH(request: Request) {
@@ -26,27 +36,49 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = (await request.json()) as { notifyOrders?: boolean };
-  if (typeof body.notifyOrders !== 'boolean') {
-    return NextResponse.json({ error: 'notifyOrders boolean is required' }, { status: 400 });
-  }
+  const body = (await request.json()) as { notifyOrders?: boolean; pin?: string | null };
 
-  if (auth.staffRole === 'super_admin') {
-    const existing = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first();
-    if (existing) {
-      await db.orm.public.ShopSettings.where({ id: existing.id }).update({
-        superAdminNotify: body.notifyOrders,
-      });
+  if (typeof body.notifyOrders === 'boolean') {
+    if (auth.staffRole === 'super_admin') {
+      const existing = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first();
+      if (existing) {
+        await db.orm.public.ShopSettings.where({ id: existing.id }).update({
+          superAdminNotify: body.notifyOrders,
+        });
+      } else {
+        await db.orm.public.ShopSettings.create({
+          superAdminNotify: body.notifyOrders,
+        });
+      }
     } else {
-      await db.orm.public.ShopSettings.create({
-        superAdminNotify: body.notifyOrders,
+      await db.orm.public.StaffUser.where({ telegramId: auth.telegramUser.id }).update({
+        notifyOrders: body.notifyOrders,
       });
     }
-  } else {
-    await db.orm.public.StaffUser.where({ telegramId: auth.telegramUser.id }).update({
-      notifyOrders: body.notifyOrders,
-    });
+    return NextResponse.json({ notifyOrders: body.notifyOrders });
   }
 
-  return NextResponse.json({ notifyOrders: body.notifyOrders });
+  if (body.pin !== undefined) {
+    const nextPin = body.pin === null || body.pin.trim() === '' ? 'OFF' : body.pin.trim();
+    if (nextPin !== 'OFF' && (nextPin.length < 4 || nextPin.length > 12)) {
+      return NextResponse.json({ error: 'PIN must be 4 to 12 characters' }, { status: 400 });
+    }
+
+    if (auth.staffRole === 'super_admin') {
+      const existing = await db.orm.public.ShopSettings.orderBy((s) => s.id.asc()).first();
+      if (existing) {
+        await db.orm.public.ShopSettings.where({ id: existing.id }).update({ adminPin: nextPin });
+      } else {
+        await db.orm.public.ShopSettings.create({ adminPin: nextPin });
+      }
+    } else {
+      await db.orm.public.StaffUser.where({ telegramId: auth.telegramUser.id }).update({
+        pin: nextPin,
+      });
+    }
+
+    return NextResponse.json({ ok: true, hasPin: nextPin !== 'OFF' });
+  }
+
+  return NextResponse.json({ error: 'notifyOrders or pin is required' }, { status: 400 });
 }

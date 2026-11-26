@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "contract:emit": "prisma contract emit"
+    "contract:emit": "prisma contract emit",
+    "host:sync": "node scripts/push-to-host.mjs"
   },
   "dependencies": {
     "@prisma/client": "^7.10.1",

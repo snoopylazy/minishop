@@ -1,0 +1,72 @@
+// use prisma-8
+
+model StaffUser {
+  id         Int                @id @default(autoincrement())
+  telegramId String             @unique
+  username   String?
+  name       String
+  role       String             @default("seller")
+  isActive   Boolean            @default(true)
+  createdBy  String?
+  createdAt  DateTime           @default(now()) @onCreate(now())
+  updatedAt  temporal.UpdatedAt
+}
+
+model Product {
+  id          Int                @id @default(autoincrement())
+  name        String
+  description String?
+  priceCents  Int
+  currency    String             @default("USD")
+  stock       Int                @default(0)
+  imageUrl    String?
+  isActive    Boolean            @default(true)
+  orderItems  OrderItem[]
+  createdAt   DateTime           @default(now()) @onCreate(now())
+  updatedAt   temporal.UpdatedAt
+}
+
+model Order {
+  id                  Int                @id @default(autoincrement())
+  orderCode           String             @unique
+  customerTelegramId  String
+  customerUsername    String?
+  customerName        String
+  phone               String
+  address             String
+  note                String?
+  totalCents          Int
+  currency            String             @default("USD")
+  paymentStatus       String             @default("pending")
+  orderStatus         String             @default("new")
+  handledByTelegramId String?
+  items               OrderItem[]
+  payments            Payment[]
+  createdAt           DateTime           @default(now()) @onCreate(now())
+  updatedAt           temporal.UpdatedAt
+}
+
+model OrderItem {
+  id             Int     @id @default(autoincrement())
+  order          Order   @relation(fields: [orderId], references: [id])
+  orderId        Int
+  product        Product @relation(fields: [productId], references: [id])
+  productId      Int
+  productName    String
+  quantity       Int
+  unitPriceCents Int
+}
+
+model Payment {
+  id             Int       @id @default(autoincrement())
+  order          Order     @relation(fields: [orderId], references: [id])
+  orderId        Int
+  provider       String
+  transactionRef String    @unique
+  qrString       String?
+  amountCents    Int
+  status         String    @default("pending")
+  rawPayload     String?
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now()) @onCreate(now())
+}

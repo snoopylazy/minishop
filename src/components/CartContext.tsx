@@ -13,12 +13,13 @@ export interface CartProduct {
 
 export interface CartItem extends CartProduct {
   quantity: number;
+  variant?: string | null;
 }
 
 interface CartContextValue {
   items: CartItem[];
-  addItem: (product: CartProduct) => void;
-  updateQuantity: (productId: number, quantity: number) => void;
+  addItem: (product: CartProduct, variant?: string | null) => void;
+  updateQuantity: (productId: number, quantity: number, variant?: string | null) => void;
   clearCart: () => void;
   totalCents: number;
   totalCount: number;
@@ -27,30 +28,43 @@ interface CartContextValue {
 
 const CartContext = createContext<CartContextValue | null>(null);
 
+function sameLine(item: CartItem, productId: number, variant?: string | null) {
+  return item.id === productId && (item.variant ?? null) === (variant ?? null);
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = (product: CartProduct) => {
+  const addItem = (product: CartProduct, variant: string | null = null) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
+      const totalForProduct = prev
+        .filter((i) => i.id === product.id)
+        .reduce((sum, i) => sum + i.quantity, 0);
+      if (totalForProduct >= product.stock) return prev;
+
+      const existing = prev.find((i) => sameLine(i, product.id, variant));
       if (existing) {
-        if (existing.quantity >= product.stock) return prev;
         return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
+          sameLine(i, product.id, variant) ? { ...i, quantity: i.quantity + 1 } : i,
         );
       }
       if (product.stock <= 0) return prev;
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, variant, quantity: 1 }];
     });
   };
 
-  const updateQuantity = (productId: number, quantity: number) => {
+  const updateQuantity = (productId: number, quantity: number, variant: string | null = null) => {
     setItems((prev) => {
       if (quantity <= 0) {
-        return prev.filter((i) => i.id !== productId);
+        return prev.filter((i) => !sameLine(i, productId, variant));
       }
+      const otherQty = prev
+        .filter((i) => i.id === productId && !sameLine(i, productId, variant))
+        .reduce((sum, i) => sum + i.quantity, 0);
       return prev.map((i) =>
-        i.id === productId ? { ...i, quantity: Math.min(quantity, i.stock) } : i,
+        sameLine(i, productId, variant)
+          ? { ...i, quantity: Math.min(quantity, Math.max(0, i.stock - otherQty)) }
+          : i,
       );
     });
   };
@@ -80,6 +94,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 export function useCart() {
   const ctx = useContext(CartContext);
-  if (!ctx) throw new Error('useCart must be used within CartProvider');
+  if (!ctx) {
+    throw new Error('useCart must be used inside CartProvider');
+  }
   return ctx;
 }

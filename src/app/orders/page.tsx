@@ -9,6 +9,7 @@ import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useCart, type CartProduct } from '@/components/CartContext';
 import { useLang } from '@/components/LanguageContext';
+import { useUI } from '@/components/UIContext';
 
 interface OrderItem {
   id: number;
@@ -102,7 +103,9 @@ export default function OrdersPage() {
   const router = useRouter();
   const { addItem, updateQuantity } = useCart();
   const { t } = useLang();
+  const { confirm, toast } = useUI();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -137,7 +140,7 @@ export default function OrdersPage() {
       if (added > 0) {
         router.push('/checkout');
       } else {
-        window.alert('These items are currently out of stock.');
+        toast('These items are currently out of stock.', 'error');
       }
     } finally {
       setReorderingId(null);
@@ -231,7 +234,7 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(async (pageNum: number, replace: boolean) => {
     if (pageNum === 1) setLoading(true); else setLoadingMore(true);
     try {
-      const res = await fetch(`/api/orders?page=${pageNum}&limit=20`, { headers: getTelegramAuthHeaders() });
+      const res = await fetch(`/api/orders?page=${pageNum}&limit=20&mine=1`, { headers: getTelegramAuthHeaders() });
       if (!res.ok) return;
       const data = await res.json();
       setOrders((prev) => replace ? (data.orders ?? []) : [...prev, ...(data.orders ?? [])]);
@@ -250,18 +253,20 @@ export default function OrdersPage() {
   }, hasMore && !loadingMore);
 
   const removeUnpaidOrder = async (order: Order) => {
-    if (!window.confirm(`Remove unpaid order ${order.orderCode}?`)) return;
+    const ok = await confirm(`Remove unpaid order ${order.orderCode}?`);
+    if (!ok) return;
     const res = await fetch(`/api/orders/${order.id}`, {
       method: 'DELETE',
       headers: getTelegramAuthHeaders(),
     });
     if (res.ok) {
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      toast('Order removed', 'info');
     }
   };
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-24">
       <TopNav />
       <main className="mx-auto max-w-2xl px-4 py-5">
         <Link
@@ -272,7 +277,36 @@ export default function OrdersPage() {
           {t('backToShop')}
         </Link>
 
-        <h1 className="mb-4 text-2xl font-bold tracking-tight text-slate-900">{t('myOrders')}</h1>
+        <h1 className="mb-3 text-2xl font-bold tracking-tight text-slate-900">{t('myOrders')}</h1>
+
+        {orders.length > 0 && (
+          <div className="mb-4 -mx-4 px-4 flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+            {(['all', 'unpaid', 'new', 'preparing', 'shipped', 'delivered'] as const).map((st) => (
+              <button
+                key={st}
+                type="button"
+                onClick={() => setStatusFilter(st)}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold capitalize transition ${
+                  statusFilter === st
+                    ? 'bg-sky-500 text-white'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {st === 'all'
+                  ? t('allCategories')
+                  : st === 'unpaid'
+                    ? t('pending')
+                    : st === 'preparing'
+                      ? t('statusPreparing')
+                      : st === 'shipped'
+                        ? t('statusShipped')
+                        : st === 'delivered'
+                          ? t('statusDelivered')
+                          : t('statusNew')}
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="space-y-3">
@@ -299,7 +333,13 @@ export default function OrdersPage() {
         ) : (
           <>
             <div className="space-y-3">
-              {orders.map((order) => (              <div
+              {orders
+                .filter((o) => {
+                  if (statusFilter === 'all') return true;
+                  if (statusFilter === 'unpaid') return o.paymentStatus !== 'paid';
+                  return o.orderStatus === statusFilter;
+                })
+                .map((order) => (              <div
                 key={order.id}
                 className="overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm"
               >

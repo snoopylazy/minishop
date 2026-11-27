@@ -19,6 +19,7 @@ model Product {
   name                String
   description         String?
   category            String?
+  variants            String?
   priceCents          Int
   compareAtPriceCents Int?
   currency            String             @default("USD")
@@ -39,6 +40,8 @@ model Order {
   phone               String
   address             String
   note                String?
+  promoCode           String?
+  discountCents       Int                @default(0)
   totalCents          Int
   currency            String             @default("USD")
   paymentStatus       String             @default("pending")
@@ -96,4 +99,25 @@ model AuditLog {
   targetId        String?
   details         String?
   createdAt       DateTime @default(now()) @onCreate(now())
+}
+
+model PromoCode {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  discountType  String   @default("percent")
+  discountValue Int
+  minOrderCents Int?
+  maxUses       Int?
+  usedCount     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @onCreate(now())
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  nameKm    String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @onCreate(now())
 }

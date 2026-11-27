@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       name?: string;
       description?: string;
       category?: string;
+      variants?: string | null;
       priceCents?: number;
       compareAtPriceCents?: number | null;
       currency?: string;
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       name: body.name.trim(),
       description: body.description?.trim() || null,
       category: body.category?.trim() || null,
+      variants: body.variants?.trim() || null,
       priceCents: Math.round(body.priceCents),
       compareAtPriceCents:
         typeof body.compareAtPriceCents === 'number' && body.compareAtPriceCents > 0

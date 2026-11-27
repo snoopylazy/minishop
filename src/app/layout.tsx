@@ -5,6 +5,8 @@ import './globals.css';
 import { CartProvider } from '@/components/CartContext';
 import { ThemeProvider } from '@/components/ThemeContext';
 import { LanguageProvider } from '@/components/LanguageContext';
+import { UIProvider } from '@/components/UIContext';
+import { CustomerBottomNav } from '@/components/CustomerBottomNav';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -41,7 +43,12 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         />
         <LanguageProvider>
           <ThemeProvider>
-            <CartProvider>{children}</CartProvider>
+            <UIProvider>
+              <CartProvider>
+                {children}
+                <CustomerBottomNav />
+              </CartProvider>
+            </UIProvider>
           </ThemeProvider>
         </LanguageProvider>
       </body>

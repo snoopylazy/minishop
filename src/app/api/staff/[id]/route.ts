@@ -54,6 +54,17 @@ export async function PATCH(
     updateData.username = body.username?.trim().replace(/^@/, '') || null;
   }
 
+  const target = await db.orm.public.StaffUser.where({ id: staffId }).first();
+  if (!target) {
+    return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+  }
+  if (target.telegramId === auth.telegramUser.id && (body.role !== undefined || body.isActive !== undefined)) {
+    return NextResponse.json(
+      { error: 'You cannot change your own role or active status.' },
+      { status: 400 },
+    );
+  }
+
   const updated = await db.orm.public.StaffUser
     .where({ id: staffId })
     .update(updateData);
@@ -87,6 +98,9 @@ export async function DELETE(
   }
 
   const existing = await db.orm.public.StaffUser.where({ id: staffId }).first();
+  if (existing?.telegramId === auth.telegramUser.id) {
+    return NextResponse.json({ error: 'You cannot delete your own account.' }, { status: 400 });
+  }
   await db.orm.public.StaffUser.where({ id: staffId }).delete();
 
   await recordAuditLog({

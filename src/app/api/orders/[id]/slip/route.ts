@@ -4,6 +4,7 @@ import { db } from '@/prisma/db';
 import { getAuthContext } from '@/lib/telegram-auth';
 import { getBot } from '@/lib/bot';
 import { formatMoney } from '@/lib/payment';
+import { isR2Configured, uploadToR2 } from '@/lib/r2';
 
 export async function POST(
   request: Request,
@@ -57,15 +58,32 @@ export async function POST(
     return NextResponse.json({ error: 'Valid image is required' }, { status: 400 });
   }
 
-  const base64 = body.imageDataUrl.split(',')[1];
+  const [header, base64] = body.imageDataUrl.split(',');
   if (!base64) {
     return NextResponse.json({ error: 'Invalid image data' }, { status: 400 });
+  }
+
+  const buffer = Buffer.from(base64, 'base64');
+  const mime = header.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
+  const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+
+  let slipImageUrl = body.imageDataUrl;
+  if (isR2Configured()) {
+    try {
+      slipImageUrl = await uploadToR2({
+        buffer,
+        contentType: mime,
+        key: `slips/order-${orderId}-${Date.now()}.${ext}`,
+      });
+    } catch (err) {
+      console.warn('R2 slip upload failed, falling back to data URL:', err);
+    }
   }
 
   // Persist slip image on Payment.rawPayload so staff can also view it inside /admin
   await db.orm.public.Payment.where({ orderId }).update({
     rawPayload: JSON.stringify({
-      slipImageUrl: body.imageDataUrl,
+      slipImageUrl,
       slipUploadedAt: new Date().toISOString(),
     }),
   });
@@ -88,7 +106,6 @@ export async function POST(
       recipientIds.add(staff.telegramId);
     }
 
-    const buffer = Buffer.from(base64, 'base64');
     const caption = [
       `🧾 *Payment Slip Uploaded*`,
       `Order: \`${order.orderCode}\``,

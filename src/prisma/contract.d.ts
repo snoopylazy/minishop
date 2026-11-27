@@ -18,9 +18,9 @@ import type {
 } from '@prisma/orm-postgres/contract-types';
 
 export type StorageHash =
-  StorageHashBase<'3f89b52cbcbd3fd7d487e87274f33e2573dcd383a9fb284bd579404509bb8b37'>;
+  StorageHashBase<'66001fb8a77be531d7a0dd2fbf00ba1ae7ec8a98d0c8535d45f4a0d90f8cf965'>;
 export type ExecutionHash =
-  ExecutionHashBase<'9aec8d3322ebf133c2040a97a2d8570fd629ed344e89268536c67f3e7aee1042'>;
+  ExecutionHashBase<'89017af37719218bb6e747c04d09b68fa86a0ce56d52e17faf160421cca32e8e'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -316,6 +316,15 @@ export namespace Models {
     targetType: FieldOutputTypes['public']['AuditLog']['targetType'];
     readonly [RelationKeys]?: never;
   };
+  export type public_Category = {
+    createdAt: FieldOutputTypes['public']['Category']['createdAt'];
+    id: FieldOutputTypes['public']['Category']['id'];
+    isActive: FieldOutputTypes['public']['Category']['isActive'];
+    name: FieldOutputTypes['public']['Category']['name'];
+    nameKm: FieldOutputTypes['public']['Category']['nameKm'];
+    sortOrder: FieldOutputTypes['public']['Category']['sortOrder'];
+    readonly [RelationKeys]?: never;
+  };
   export type public_Order = {
     address: FieldOutputTypes['public']['Order']['address'];
     createdAt: FieldOutputTypes['public']['Order']['createdAt'];
@@ -323,6 +332,7 @@ export namespace Models {
     customerName: FieldOutputTypes['public']['Order']['customerName'];
     customerTelegramId: FieldOutputTypes['public']['Order']['customerTelegramId'];
     customerUsername: FieldOutputTypes['public']['Order']['customerUsername'];
+    discountCents: FieldOutputTypes['public']['Order']['discountCents'];
     handledByTelegramId: FieldOutputTypes['public']['Order']['handledByTelegramId'];
     id: FieldOutputTypes['public']['Order']['id'];
     note: FieldOutputTypes['public']['Order']['note'];
@@ -330,6 +340,7 @@ export namespace Models {
     orderStatus: FieldOutputTypes['public']['Order']['orderStatus'];
     paymentStatus: FieldOutputTypes['public']['Order']['paymentStatus'];
     phone: FieldOutputTypes['public']['Order']['phone'];
+    promoCode: FieldOutputTypes['public']['Order']['promoCode'];
     totalCents: FieldOutputTypes['public']['Order']['totalCents'];
     updatedAt: FieldOutputTypes['public']['Order']['updatedAt'];
     items: public_OrderItem[];
@@ -374,8 +385,21 @@ export namespace Models {
     priceCents: FieldOutputTypes['public']['Product']['priceCents'];
     stock: FieldOutputTypes['public']['Product']['stock'];
     updatedAt: FieldOutputTypes['public']['Product']['updatedAt'];
+    variants: FieldOutputTypes['public']['Product']['variants'];
     orderItems: public_OrderItem[];
     readonly [RelationKeys]?: 'orderItems';
+  };
+  export type public_PromoCode = {
+    code: FieldOutputTypes['public']['PromoCode']['code'];
+    createdAt: FieldOutputTypes['public']['PromoCode']['createdAt'];
+    discountType: FieldOutputTypes['public']['PromoCode']['discountType'];
+    discountValue: FieldOutputTypes['public']['PromoCode']['discountValue'];
+    id: FieldOutputTypes['public']['PromoCode']['id'];
+    isActive: FieldOutputTypes['public']['PromoCode']['isActive'];
+    maxUses: FieldOutputTypes['public']['PromoCode']['maxUses'];
+    minOrderCents: FieldOutputTypes['public']['PromoCode']['minOrderCents'];
+    usedCount: FieldOutputTypes['public']['PromoCode']['usedCount'];
+    readonly [RelationKeys]?: never;
   };
   export type public_ShopSettings = {
     adminPin: FieldOutputTypes['public']['ShopSettings']['adminPin'];
@@ -407,10 +431,12 @@ export namespace Models {
 export declare const models: {
   public: {
     AuditLog: Models.public_AuditLog;
+    Category: Models.public_Category;
     Order: Models.public_Order;
     OrderItem: Models.public_OrderItem;
     Payment: Models.public_Payment;
     Product: Models.public_Product;
+    PromoCode: Models.public_PromoCode;
     ShopSettings: Models.public_ShopSettings;
     StaffUser: Models.public_StaffUser;
   };
@@ -502,6 +528,64 @@ type ContractBase = Omit<
               indexes: readonly [];
               foreignKeys: readonly [];
             };
+            readonly Category: {
+              columns: {
+                readonly createdAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                  readonly many: false;
+                };
+                readonly isActive: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                  readonly many: false;
+                };
+                readonly name: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly nameKm: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly sortOrder: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['name'] }];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
             readonly Order: {
               columns: {
                 readonly address: {
@@ -544,6 +628,16 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly discountCents: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
                   readonly many: false;
                 };
                 readonly handledByTelegramId: {
@@ -598,6 +692,12 @@ type ContractBase = Omit<
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly promoCode: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
                   readonly many: false;
                 };
                 readonly totalCents: {
@@ -897,9 +997,95 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
+                readonly variants: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
               };
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [];
+              indexes: readonly [];
+              foreignKeys: readonly [];
+            };
+            readonly PromoCode: {
+              columns: {
+                readonly code: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly createdAt: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly discountType: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'percent'>;
+                  };
+                  readonly many: false;
+                };
+                readonly discountValue: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'autoincrement()';
+                  };
+                  readonly many: false;
+                };
+                readonly isActive: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                  readonly many: false;
+                };
+                readonly maxUses: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly minOrderCents: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly usedCount: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['code'] }];
               indexes: readonly [];
               foreignKeys: readonly [];
             };
@@ -1077,10 +1263,12 @@ type ContractBase = Omit<
   readonly targetFamily: 'sql';
   readonly roots: {
     readonly AuditLog: { readonly namespace: 'public' & NamespaceId; readonly model: 'AuditLog' };
+    readonly Category: { readonly namespace: 'public' & NamespaceId; readonly model: 'Category' };
     readonly Order: { readonly namespace: 'public' & NamespaceId; readonly model: 'Order' };
     readonly OrderItem: { readonly namespace: 'public' & NamespaceId; readonly model: 'OrderItem' };
     readonly Payment: { readonly namespace: 'public' & NamespaceId; readonly model: 'Payment' };
     readonly Product: { readonly namespace: 'public' & NamespaceId; readonly model: 'Product' };
+    readonly PromoCode: { readonly namespace: 'public' & NamespaceId; readonly model: 'PromoCode' };
     readonly ShopSettings: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'ShopSettings';
@@ -1151,6 +1339,51 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly Category: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly isActive: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly name: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly nameKm: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly sortOrder: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'Category';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly id: { readonly column: 'id' };
+                readonly isActive: { readonly column: 'isActive' };
+                readonly name: { readonly column: 'name' };
+                readonly nameKm: { readonly column: 'nameKm' };
+                readonly sortOrder: { readonly column: 'sortOrder' };
+              };
+            };
+          };
           readonly Order: {
             readonly fields: {
               readonly address: {
@@ -1181,6 +1414,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly discountCents: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
               readonly handledByTelegramId: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1207,6 +1444,10 @@ type ContractBase = Omit<
               };
               readonly phone: {
                 readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly promoCode: {
+                readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
               readonly totalCents: {
@@ -1256,6 +1497,7 @@ type ContractBase = Omit<
                 readonly customerName: { readonly column: 'customerName' };
                 readonly customerTelegramId: { readonly column: 'customerTelegramId' };
                 readonly customerUsername: { readonly column: 'customerUsername' };
+                readonly discountCents: { readonly column: 'discountCents' };
                 readonly handledByTelegramId: { readonly column: 'handledByTelegramId' };
                 readonly id: { readonly column: 'id' };
                 readonly note: { readonly column: 'note' };
@@ -1263,6 +1505,7 @@ type ContractBase = Omit<
                 readonly orderStatus: { readonly column: 'orderStatus' };
                 readonly paymentStatus: { readonly column: 'paymentStatus' };
                 readonly phone: { readonly column: 'phone' };
+                readonly promoCode: { readonly column: 'promoCode' };
                 readonly totalCents: { readonly column: 'totalCents' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };
@@ -1474,6 +1717,10 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                 };
               };
+              readonly variants: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
             };
             readonly relations: {
               readonly orderItems: {
@@ -1504,6 +1751,67 @@ type ContractBase = Omit<
                 readonly priceCents: { readonly column: 'priceCents' };
                 readonly stock: { readonly column: 'stock' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
+                readonly variants: { readonly column: 'variants' };
+              };
+            };
+          };
+          readonly PromoCode: {
+            readonly fields: {
+              readonly code: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly discountType: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly discountValue: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly isActive: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly maxUses: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly minOrderCents: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly usedCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'PromoCode';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly code: { readonly column: 'code' };
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly discountType: { readonly column: 'discountType' };
+                readonly discountValue: { readonly column: 'discountValue' };
+                readonly id: { readonly column: 'id' };
+                readonly isActive: { readonly column: 'isActive' };
+                readonly maxUses: { readonly column: 'maxUses' };
+                readonly minOrderCents: { readonly column: 'minOrderCents' };
+                readonly usedCount: { readonly column: 'usedCount' };
               };
             };
           };
@@ -1697,6 +2005,18 @@ type ContractBase = Omit<
             readonly params: { readonly precision: 3 };
           };
           readonly ref: {
+            readonly entry: 'Category';
+            readonly field: 'createdAt';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
             readonly entry: 'Order';
             readonly field: 'createdAt';
             readonly namespace: 'public';
@@ -1757,6 +2077,18 @@ type ContractBase = Omit<
           readonly ref: {
             readonly entry: 'Product';
             readonly field: 'updatedAt';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
+            readonly entry: 'PromoCode';
+            readonly field: 'createdAt';
             readonly namespace: 'public';
           };
         },

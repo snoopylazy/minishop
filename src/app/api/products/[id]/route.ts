@@ -22,6 +22,7 @@ export async function PATCH(
     name?: string;
     description?: string | null;
     category?: string | null;
+    variants?: string | null;
     priceCents?: number;
     compareAtPriceCents?: number | null;
     stock?: number;
@@ -33,6 +34,7 @@ export async function PATCH(
     name?: string;
     description?: string | null;
     category?: string | null;
+    variants?: string | null;
     priceCents?: number;
     compareAtPriceCents?: number | null;
     stock?: number;
@@ -43,6 +45,7 @@ export async function PATCH(
   if (typeof body.name === 'string' && body.name.trim()) updateData.name = body.name.trim();
   if (body.description !== undefined) updateData.description = body.description?.trim() || null;
   if (body.category !== undefined) updateData.category = body.category?.trim() || null;
+  if (body.variants !== undefined) updateData.variants = body.variants?.trim() || null;
   if (typeof body.priceCents === 'number' && body.priceCents > 0) {
     updateData.priceCents = Math.round(body.priceCents);
   }

@@ -7,12 +7,6 @@ import { getTelegramAuthHeaders, initTelegramWebApp } from '@/lib/client-telegra
 import { useTheme, BG_PRESETS, ACCENT_PRESETS } from '@/components/ThemeContext';
 import { useLang } from '@/components/LanguageContext';
 
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Dashboard',
-  admin: 'Dashboard',
-  seller: 'Seller',
-};
-
 const ROLE_COLORS: Record<string, string> = {
   super_admin: 'bg-violet-500 text-white',
   admin: 'bg-sky-500 text-white',
@@ -23,18 +17,31 @@ let cachedStaffRole: string | null = null;
 
 export function TopNav() {
   const [staffRole, setStaffRole] = useState<string | null>(cachedStaffRole);
+  const [newOrders, setNewOrders] = useState(0);
+  const [activeOrders, setActiveOrders] = useState(0);
   const [showTheme, setShowTheme] = useState(false);
   const { theme, setTheme, resetTheme } = useTheme();
   const { lang, setLang, t } = useLang();
 
   useEffect(() => {
     initTelegramWebApp();
-    fetch('/api/me', { headers: getTelegramAuthHeaders() })
+    const headers = getTelegramAuthHeaders();
+    fetch('/api/me', { headers })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.staffRole) {
           cachedStaffRole = data.staffRole;
           setStaffRole(data.staffRole);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/badges', { headers })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          setNewOrders(data.newOrders ?? 0);
+          setActiveOrders(data.activeCustomerOrders ?? 0);
         }
       })
       .catch(() => {});
@@ -75,19 +82,27 @@ export function TopNav() {
 
             <Link
               href="/orders"
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+              className="relative flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
             >
               <Package className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden xs:inline sm:inline">{t('myOrders')}</span>
+              {activeOrders > 0 && (
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+              )}
             </Link>
 
             {staffRole && (
               <Link
                 href="/admin"
-                className={`flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-semibold transition-colors ${ROLE_COLORS[staffRole] ?? 'bg-slate-700 text-white'} shadow-sm`}
+                className={`relative flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] sm:text-xs font-semibold transition-colors ${ROLE_COLORS[staffRole] ?? 'bg-slate-700 text-white'} shadow-sm`}
               >
                 <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
                 <span>{staffRole === 'seller' ? t('seller') : t('dashboard')}</span>
+                {newOrders > 0 && (
+                  <span className="ml-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                    {newOrders}
+                  </span>
+                )}
               </Link>
             )}
           </nav>

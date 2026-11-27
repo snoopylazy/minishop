@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import { Loader2, Image as ImageIcon, X, CheckCircle2, Bell, BellOff, Lock } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useLang } from '@/components/LanguageContext';
+import { useUI } from '@/components/UIContext';
 
 interface OrderItem {
   id: number;
@@ -51,12 +51,14 @@ function getSlipImageUrl(order: Order): string | null {
 
 export default function AdminOrdersPage() {
   const { t, lang } = useLang();
+  const { confirm, toast } = useUI();
   const [role, setRole] = useState<string | null>(null);
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [notifyOrders, setNotifyOrders] = useState<boolean>(true);
   const [togglingNotify, setTogglingNotify] = useState(false);
   const [hasPin, setHasPin] = useState<boolean>(false);
   const [showPinModal, setShowPinModal] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [savingPin, setSavingPin] = useState(false);
@@ -157,13 +159,15 @@ export default function AdminOrdersPage() {
   };
 
   const deleteOrder = async (order: Order) => {
-    if (!window.confirm(`Delete order ${order.orderCode}?`)) return;
+    const ok = await confirm(`Delete order ${order.orderCode}?`);
+    if (!ok) return;
     const res = await fetch(`/api/orders/${order.id}`, {
       method: 'DELETE',
       headers: getTelegramAuthHeaders(),
     });
     if (res.ok) {
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      toast('Order deleted', 'success');
     }
   };
 
@@ -217,6 +221,7 @@ export default function AdminOrdersPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      setCurrentPin('');
                       setNewPin('');
                       setPinError(null);
                       setShowPinModal(true);
@@ -246,47 +251,6 @@ export default function AdminOrdersPage() {
                     <span>{notifyOrders ? t('alertsOn') : t('alertsOff')}</span>
                   </button>
                 </div>
-              </div>
-
-              <div className="-mx-4 px-4 flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5 text-[11px] font-semibold">
-                <Link
-                  href="/admin"
-                  className="shrink-0 rounded-lg bg-sky-600 px-2.5 py-1.5 text-white"
-                >
-                  {t('ordersTab')}
-                </Link>
-                {(role === 'super_admin' || role === 'admin') && (
-                  <>
-                    <Link
-                      href="/admin/products"
-                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
-                    >
-                      {t('productsTab')}
-                    </Link>
-                    <Link
-                      href="/admin/settings"
-                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
-                    >
-                      {t('paymentQrTab')}
-                    </Link>
-                  </>
-                )}
-                {role === 'super_admin' && (
-                  <>
-                    <Link
-                      href="/admin/staff"
-                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
-                    >
-                      {t('staffRolesTab')}
-                    </Link>
-                    <Link
-                      href="/admin/audit"
-                      className="shrink-0 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-slate-700 hover:bg-slate-50"
-                    >
-                      {t('auditLogTab')}
-                    </Link>
-                  </>
-                )}
               </div>
             </div>
 
@@ -320,12 +284,12 @@ export default function AdminOrdersPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by order code, customer name, or phone..."
+                  placeholder={lang === 'km' ? 'ស្វែងរកលេខកូដ ឈ្មោះ ឬលេខទូរស័ព្ទ...' : 'Search by order code, customer name, or phone...'}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-sky-500"
                 />
 
                 <div className="flex gap-1.5 overflow-x-auto pb-1">
-                  {['all', 'new', 'preparing', 'shipped', 'delivered', 'unpaid', 'cancelled'].map((tab) => (
+                  {(['all', 'new', 'preparing', 'shipped', 'delivered', 'unpaid', 'cancelled'] as const).map((tab) => (
                     <button
                       key={tab}
                       type="button"
@@ -336,7 +300,19 @@ export default function AdminOrdersPage() {
                           : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      {tab}
+                      {tab === 'all'
+                        ? t('allCategories')
+                        : tab === 'new'
+                          ? t('statusNew')
+                          : tab === 'preparing'
+                            ? t('statusPreparing')
+                            : tab === 'shipped'
+                              ? t('statusShipped')
+                              : tab === 'delivered'
+                                ? t('statusDelivered')
+                                : tab === 'unpaid'
+                                  ? t('pending')
+                                  : t('statusCancelled')}
                     </button>
                   ))}
                 </div>
@@ -592,6 +568,10 @@ export default function AdminOrdersPage() {
               onSubmit={async (e) => {
                 e.preventDefault();
                 setPinError(null);
+                if (hasPin && !currentPin.trim()) {
+                  setPinError(lang === 'km' ? 'សូមបញ្ចូល PIN បច្ចុប្បន្នជាមុន' : 'Enter current PIN to confirm');
+                  return;
+                }
                 if (newPin.trim().length < 4 || newPin.trim().length > 12) {
                   setPinError(lang === 'km' ? 'PIN ត្រូវមាន 4 ទៅ 12 ខ្ទង់' : 'PIN must be 4-12 characters');
                   return;
@@ -601,12 +581,13 @@ export default function AdminOrdersPage() {
                   const res = await fetch('/api/me', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
-                    body: JSON.stringify({ pin: newPin.trim() }),
+                    body: JSON.stringify({ pin: newPin.trim(), currentPin: currentPin.trim() }),
                   });
                   if (res.ok) {
                     setHasPin(true);
                     try { sessionStorage.setItem('miniapp_admin_unlocked', '1'); } catch {}
                     setShowPinModal(false);
+                    toast('PIN updated!', 'success');
                   } else {
                     const data = await res.json().catch(() => ({}));
                     setPinError(data.error ?? 'Failed to save PIN');
@@ -617,6 +598,22 @@ export default function AdminOrdersPage() {
               }}
               className="space-y-3"
             >
+              {hasPin && (
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-500">
+                    {lang === 'km' ? 'PIN បច្ចុប្បន្ន' : 'Current PIN'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    required
+                    placeholder="••••"
+                    value={currentPin}
+                    onChange={(e) => setCurrentPin(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-center text-base font-bold tracking-widest outline-none focus:border-sky-400 focus:bg-white"
+                  />
+                </div>
+              )}
               <input
                 type="password"
                 inputMode="numeric"
@@ -634,16 +631,25 @@ export default function AdminOrdersPage() {
                     type="button"
                     disabled={savingPin}
                     onClick={async () => {
+                      setPinError(null);
+                      if (!currentPin.trim()) {
+                        setPinError(lang === 'km' ? 'សូមបញ្ចូល PIN បច្ចុប្បន្នដើម្បីបិទ' : 'Enter current PIN to turn off');
+                        return;
+                      }
                       setSavingPin(true);
                       try {
                         const res = await fetch('/api/me', {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
-                          body: JSON.stringify({ pin: null }),
+                          body: JSON.stringify({ pin: null, currentPin: currentPin.trim() }),
                         });
                         if (res.ok) {
                           setHasPin(false);
                           setShowPinModal(false);
+                          toast('PIN turned off', 'info');
+                        } else {
+                          const data = await res.json().catch(() => ({}));
+                          setPinError(data.error ?? 'Incorrect current PIN');
                         }
                       } finally {
                         setSavingPin(false);

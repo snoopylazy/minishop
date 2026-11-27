@@ -2,10 +2,22 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { QrCode, Upload, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
+import { QrCode, Upload, Trash2, CheckCircle2, Loader2, Tag, Plus } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
-import { getTelegramAuthHeaders } from '@/lib/client-telegram';
+import { getTelegramAuthHeaders, formatMoney } from '@/lib/client-telegram';
+import { uploadDataUrlOrFallback } from '@/lib/upload-image';
 import { useLang } from '@/components/LanguageContext';
+import { useUI } from '@/components/UIContext';
+
+interface PromoItem {
+  id: number;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  usedCount: number;
+  maxUses: number | null;
+  isActive: boolean;
+}
 
 function resizeQrToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -38,6 +50,7 @@ function resizeQrToDataUrl(file: File): Promise<string> {
 
 export default function AdminSettingsPage() {
   const { t } = useLang();
+  const { confirm, toast } = useUI();
   const [qrImageUrl, setQrImageUrl] = useState<string>('');
   const [paymentNote, setPaymentNote] = useState<string>('');
   const [deliveryFee, setDeliveryFee] = useState<string>('0');
@@ -46,8 +59,22 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promos, setPromos] = useState<PromoItem[]>([]);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [promoType, setPromoType] = useState<'percent' | 'fixed'>('percent');
+  const [promoValue, setPromoValue] = useState('10');
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  const loadPromos = async () => {
+    const res = await fetch('/api/promos', { headers: getTelegramAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      setPromos(data.promos ?? []);
+    }
+  };
 
   useEffect(() => {
+    loadPromos();
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
@@ -75,9 +102,13 @@ export default function AdminSettingsPage() {
     setSaved(false);
     try {
       const dataUrl = await resizeQrToDataUrl(file);
-      setQrImageUrl(dataUrl);
-    } catch {
-      setError('Could not process QR image');
+      const { url, storedInR2 } = await uploadDataUrlOrFallback(dataUrl, 'qr');
+      setQrImageUrl(url);
+      toast(storedInR2 ? 'QR uploaded to Cloudflare R2!' : 'QR image ready', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not process QR image';
+      setError(msg);
+      toast(msg, 'error');
     }
   };
 
@@ -120,19 +151,11 @@ export default function AdminSettingsPage() {
     <div className="min-h-screen pb-16">
       <TopNav />
       <main className="mx-auto max-w-xl px-4 py-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{t('paymentQrTitle')}</h1>
-            <p className="text-xs text-slate-500">
-              {t('paymentQrSubtitle')}
-            </p>
-          </div>
-          <Link
-            href="/admin"
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            {t('backToOrders')}
-          </Link>
+        <div className="mb-4">
+          <h1 className="text-xl font-bold text-slate-900">{t('paymentQrTitle')}</h1>
+          <p className="text-xs text-slate-500">
+            {t('paymentQrSubtitle')}
+          </p>
         </div>
 
         {loading ? (
@@ -172,9 +195,12 @@ export default function AdminSettingsPage() {
                 {qrImageUrl && (
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
+                      const ok = await confirm('Remove the uploaded payment QR image?');
+                      if (!ok) return;
                       setQrImageUrl('');
                       setSaved(false);
+                      toast('QR removed — click Save to apply', 'info');
                     }}
                     className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-100"
                   >
@@ -267,6 +293,149 @@ export default function AdminSettingsPage() {
             </button>
           </form>
         )}
+
+        {/* Promo / Coupon Codes */}
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center gap-2">
+            <Tag className="h-4 w-4 text-sky-500" />
+            <h2 className="text-sm font-bold text-slate-900">
+              {t('paymentQrTab') === 'QR បង់ប្រាក់' ? 'កូដបញ្ចុះតម្លៃ (Promo Codes)' : 'Promo / Coupon Codes'}{' '}
+              <span className="text-rose-500">*</span>
+            </h2>
+          </div>
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setPromoError(null);
+              const valNum = Number(promoValue);
+              const payloadValue = promoType === 'fixed' ? Math.round(valNum * 100) : Math.round(valNum);
+              const res = await fetch('/api/promos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
+                body: JSON.stringify({
+                  code: promoCodeInput,
+                  discountType: promoType,
+                  discountValue: payloadValue,
+                }),
+              });
+              if (res.ok) {
+                setPromoCodeInput('');
+                await loadPromos();
+              } else {
+                const data = await res.json().catch(() => ({}));
+                setPromoError(data.error ?? 'Failed to create promo code');
+              }
+            }}
+            className="mb-4 flex flex-wrap items-end gap-2"
+          >
+            <div className="min-w-[120px] flex-1">
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">
+                Code <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. SAVE10"
+                value={promoCodeInput}
+                onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-mono uppercase outline-none focus:border-sky-400 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">Type</label>
+              <select
+                value={promoType}
+                onChange={(e) => setPromoType(e.target.value as 'percent' | 'fixed')}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs"
+              >
+                <option value="percent">% Off</option>
+                <option value="fixed">$ Off</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-slate-500">
+                Value <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                step={promoType === 'fixed' ? '0.01' : '1'}
+                min="1"
+                required
+                value={promoValue}
+                onChange={(e) => setPromoValue(e.target.value)}
+                className="w-20 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs outline-none focus:border-sky-400 focus:bg-white"
+              />
+            </div>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1 rounded-xl bg-sky-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-sky-600"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>{t('addBtn')}</span>
+            </button>
+          </form>
+
+          {promoError && <p className="mb-3 text-xs text-rose-600">{promoError}</p>}
+
+          {promos.length === 0 ? (
+            <p className="text-xs text-slate-400">{t('noPromosYet')}</p>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {promos.map((p) => (
+                <div key={p.id} className="flex items-center justify-between py-2 text-xs">
+                  <div>
+                    <span className="font-mono font-bold text-slate-800">{p.code}</span>
+                    <span className="ml-2 text-slate-500">
+                      {p.discountType === 'percent' ? `${p.discountValue}% off` : `${formatMoney(p.discountValue, 'USD')} off`}
+                    </span>
+                    <span className="ml-2 text-[11px] text-slate-400">({p.usedCount} used)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await fetch(`/api/promos/${p.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json', ...getTelegramAuthHeaders() },
+                          body: JSON.stringify({ isActive: !p.isActive }),
+                        });
+                        if (res.ok) {
+                          setPromos((prev) =>
+                            prev.map((x) => (x.id === p.id ? { ...x, isActive: !x.isActive } : x)),
+                          );
+                        }
+                      }}
+                      className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${
+                        p.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {p.isActive ? 'Active' : 'Off'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const ok = await confirm(`Delete promo code ${p.code}?`);
+                        if (!ok) return;
+                        const res = await fetch(`/api/promos/${p.id}`, {
+                          method: 'DELETE',
+                          headers: getTelegramAuthHeaders(),
+                        });
+                        if (res.ok) {
+                          setPromos((prev) => prev.filter((x) => x.id !== p.id));
+                          toast(`Deleted ${p.code}`, 'success');
+                        }
+                      }}
+                      className="rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-100"
+                    >
+                      Del
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );

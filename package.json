@@ -11,6 +11,7 @@
     "host:sync": "node scripts/push-to-host.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1178.0",
     "@prisma/client": "^7.10.1",
     "@prisma/orm-postgres": "^8.0.0-rc.25",
     "dotenv": "^18.0.10",

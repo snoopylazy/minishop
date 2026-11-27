@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
 import { Loader2, ClipboardList, Search } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { getTelegramAuthHeaders } from '@/lib/client-telegram';
@@ -37,7 +36,7 @@ function formatDateTime(iso: string) {
 }
 
 export default function AdminAuditPage() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [filterType, setFilterType] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -93,19 +92,11 @@ export default function AdminAuditPage() {
     <div className="min-h-screen pb-16">
       <TopNav />
       <main className="mx-auto max-w-3xl px-4 py-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">{t('auditLogTitle')}</h1>
-            <p className="text-xs text-slate-500">
-              {t('auditLogSubtitle')}
-            </p>
-          </div>
-          <Link
-            href="/admin"
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            {t('backToOrders')}
-          </Link>
+        <div className="mb-4">
+          <h1 className="text-xl font-bold text-slate-900">{t('auditLogTitle')}</h1>
+          <p className="text-xs text-slate-500">
+            {t('auditLogSubtitle')}
+          </p>
         </div>
 
         {error ? (
@@ -138,7 +129,15 @@ export default function AdminAuditPage() {
                         : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
-                    {typeKey === 'all' ? t('allActivity') : typeKey}
+                    {typeKey === 'all'
+                      ? t('allActivity')
+                      : typeKey === 'order'
+                        ? (lang === 'km' ? 'ការបញ្ជាទិញ' : 'Order')
+                        : typeKey === 'product'
+                          ? (lang === 'km' ? 'ផលិតផល' : 'Product')
+                          : typeKey === 'staff'
+                            ? (lang === 'km' ? 'បុគ្គលិក' : 'Staff')
+                            : (lang === 'km' ? 'ការកំណត់' : 'Settings')}
                   </button>
                 ))}
               </div>

@@ -1,31 +1,42 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import Link from 'next/link';
-import { Plus, Minus, ShoppingCart, Sparkles, Loader2, Package, Search, X } from 'lucide-react';
+import { Plus, Minus, Sparkles, Loader2, Package, Search, X } from 'lucide-react';
 import { TopNav } from '@/components/TopNav';
 import { useCart, type CartProduct } from '@/components/CartContext';
 import { formatMoney } from '@/lib/client-telegram';
+import { parseProductVariants } from '@/lib/variants';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useLang } from '@/components/LanguageContext';
 
 interface Product extends CartProduct {
   description: string | null;
   category: string | null;
+  variants: string | null;
   compareAtPriceCents: number | null;
+}
+
+function parseVariants(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
 }
 
 export default function StorefrontPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [managedCategories, setManagedCategories] = useState<Array<{ id: number; name: string; nameKm: string | null }>>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [search, setSearch] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const { items, addItem, updateQuantity, totalCents, totalCount, currency } = useCart();
-  const { t } = useLang();
+  const { items, addItem, updateQuantity } = useCart();
+  const { t, lang } = useLang();
 
   const fetchProducts = useCallback(async (pageNum: number, replace: boolean) => {
     if (pageNum === 1) setLoading(true); else setLoadingMore(true);
@@ -41,18 +52,37 @@ export default function StorefrontPage() {
     }
   }, []);
 
-  useEffect(() => { fetchProducts(1, true); }, [fetchProducts]);
+  useEffect(() => {
+    fetchProducts(1, true);
+    fetch('/api/categories')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.categories) setManagedCategories(d.categories);
+      })
+      .catch(() => {});
+  }, [fetchProducts]);
 
   // Reset to page 1 when category changes (client-side filter, no extra fetch needed)
   const sentinelRef = useInfiniteScroll(() => {
     if (!loadingMore && hasMore) fetchProducts(page + 1, false);
   }, hasMore && !loadingMore);
 
-  const categories = [
-    'All',
-    ...Array.from(
-      new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c))),
+  const managedNames = new Set(managedCategories.map((c) => c.name));
+  const extraProductCats = Array.from(
+    new Set(
+      products
+        .map((p) => p.category)
+        .filter((c): c is string => typeof c === 'string' && c.length > 0 && !managedNames.has(c)),
     ),
+  ).map((name) => ({ key: name, label: name }));
+
+  const categories: Array<{ key: string; label: string }> = [
+    { key: 'All', label: t('allCategories') },
+    ...managedCategories.map((c) => ({
+      key: c.name,
+      label: lang === 'km' && c.nameKm ? c.nameKm : c.name,
+    })),
+    ...extraProductCats,
   ];
 
   const visibleProducts = products.filter((p) => {
@@ -67,7 +97,16 @@ export default function StorefrontPage() {
     );
   });
 
-  const getQty = (id: number) => items.find((i) => i.id === id)?.quantity ?? 0;
+  const getQty = (id: number, variant: string | null = null) =>
+    variant === null
+      ? items.filter((i) => i.id === id).reduce((s, i) => s + i.quantity, 0)
+      : (items.find((i) => i.id === id && (i.variant ?? null) === variant)?.quantity ?? 0);
+
+  const openProductModal = (product: Product) => {
+    const opts = parseProductVariants(product.variants, product.priceCents);
+    setSelectedVariant(opts[0]?.name ?? null);
+    setSelectedProduct(product);
+  };
 
   return (
     <div className="min-h-screen pb-28">
@@ -99,16 +138,16 @@ export default function StorefrontPage() {
           <div className="mb-5 -mx-4 px-4 flex gap-2 overflow-x-auto scrollbar-hide pb-0.5">
             {categories.map((cat) => (
               <button
-                key={cat}
+                key={cat.key}
                 type="button"
-                onClick={() => setSelectedCategory(cat)}
+                onClick={() => setSelectedCategory(cat.key)}
                 className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-150 ${
-                  selectedCategory === cat
+                  selectedCategory === cat.key
                     ? 'bg-sky-500 text-white shadow-sm shadow-sky-200'
                     : 'bg-white border border-slate-200 text-slate-500 hover:border-sky-300 hover:text-sky-600'
                 }`}
               >
-                {cat === 'All' ? t('allCategories') : cat}
+                {cat.label}
               </button>
             ))}
           </div>
@@ -116,11 +155,11 @@ export default function StorefrontPage() {
 
         {/* Product Grid */}
         {loading ? (
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map((n) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {[1, 2, 3, 4, 5, 6].map((n) => (
               <div
                 key={n}
-                className="h-60 animate-pulse rounded-2xl bg-white border border-slate-100"
+                className="h-52 animate-pulse rounded-2xl bg-white border border-slate-100"
               />
             ))}
           </div>
@@ -132,7 +171,7 @@ export default function StorefrontPage() {
             <p className="text-sm text-slate-400">{t('noProducts')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {visibleProducts.map((product) => {              const qty = getQty(product.id);
               const outOfStock = product.stock <= 0;
               const onSale =
@@ -147,8 +186,8 @@ export default function StorefrontPage() {
                   {/* Image (tap for details) */}
                   <button
                     type="button"
-                    onClick={() => setSelectedProduct(product)}
-                    className="relative aspect-square w-full bg-slate-50 overflow-hidden text-left"
+                    onClick={() => openProductModal(product)}
+                    className="relative aspect-[4/3] w-full bg-slate-50 overflow-hidden text-left"
                   >
                     {product.imageUrl ? (
                       <img
@@ -181,28 +220,48 @@ export default function StorefrontPage() {
                   </button>
 
                   {/* Info */}
-                  <div className="flex flex-1 flex-col p-3">
+                  <div className="flex flex-1 flex-col p-2.5">
                     <button
                       type="button"
-                      onClick={() => setSelectedProduct(product)}
+                      onClick={() => openProductModal(product)}
                       className="text-left"
                     >
-                      <h2 className="line-clamp-1 text-sm font-semibold text-slate-900 leading-snug hover:text-sky-600">
+                      <h2 className="line-clamp-1 text-[13px] font-semibold text-slate-900 leading-snug hover:text-sky-600">
                         {product.name}
                       </h2>
                     </button>
+                    {(() => {
+                      const cardVariants = parseProductVariants(product.variants, product.priceCents);
+                      if (cardVariants.length === 0) return null;
+                      return (
+                        <p className="mt-0.5 truncate text-[10px] font-semibold text-sky-600">
+                          {cardVariants.length} {lang === 'km' ? 'ទំហំ' : cardVariants.length === 1 ? 'size' : 'sizes'} · {cardVariants.map((v) => v.name).slice(0, 4).join(' · ')}
+                          {cardVariants.length > 4 ? '…' : ''}
+                        </p>
+                      );
+                    })()}
                     {product.description && (
-                      <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400 leading-relaxed">
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-slate-400 leading-snug">
                         {product.description}
                       </p>
                     )}
 
                     {/* Price row */}
-                    <div className="mt-auto pt-2 flex items-baseline justify-between">
+                    <div className="mt-auto pt-1.5 flex items-baseline justify-between">
                       <div className="flex flex-col">
-                        <span className="text-sm font-bold text-sky-600">
-                          {formatMoney(product.priceCents, product.currency)}
-                        </span>
+                        {(() => {
+                          const cardVariants = parseProductVariants(product.variants, product.priceCents);
+                          const prices = cardVariants.length > 0 ? cardVariants.map((v) => v.priceCents) : [product.priceCents];
+                          const minP = Math.min(...prices);
+                          const maxP = Math.max(...prices);
+                          return (
+                            <span className="text-sm font-bold text-sky-600">
+                              {minP === maxP
+                                ? formatMoney(minP, product.currency)
+                                : `${formatMoney(minP, product.currency)} - ${formatMoney(maxP, product.currency)}`}
+                            </span>
+                          );
+                        })()}
                         {onSale && product.compareAtPriceCents && (
                           <span className="text-[10px] text-slate-300 line-through">
                             {formatMoney(product.compareAtPriceCents, product.currency)}
@@ -215,13 +274,22 @@ export default function StorefrontPage() {
                     </div>
 
                     {/* Cart Button */}
-                    <div className="mt-2.5">
-                      {qty === 0 ? (
+                    <div className="mt-2">
+                      {parseProductVariants(product.variants, product.priceCents).length > 0 ? (
+                        <button
+                          type="button"
+                          disabled={outOfStock}
+                          onClick={() => openProductModal(product)}
+                          className="btn-press w-full rounded-xl bg-sky-500 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
+                        >
+                          {outOfStock ? t('outOfStock') : qty > 0 ? `${t('addToCart')} (${qty})` : t('addToCart')}
+                        </button>
+                      ) : qty === 0 ? (
                         <button
                           type="button"
                           disabled={outOfStock}
                           onClick={() => addItem(product)}
-                          className="btn-press w-full rounded-xl bg-sky-500 py-2 text-xs font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
+                          className="btn-press w-full rounded-xl bg-sky-500 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-sky-600 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-300"
                         >
                           {outOfStock ? t('outOfStock') : t('addToCart')}
                         </button>
@@ -273,33 +341,21 @@ export default function StorefrontPage() {
         )}
       </main>
 
-      {/* Floating Cart Bar */}
-      {totalCount > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4 pt-2">
-          <div className="mx-auto max-w-2xl">
-            <Link
-              href="/checkout"
-              className="btn-press flex w-full items-center justify-between rounded-2xl bg-sky-500 px-5 py-3.5 text-white shadow-xl shadow-sky-200 transition hover:bg-sky-600"
-            >
-              <span className="flex items-center gap-2.5 font-semibold">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20">
-                  <ShoppingCart className="h-4 w-4" />
-                </span>
-                <span>{totalCount} {totalCount !== 1 ? t('items') : t('item')}</span>
-              </span>
-              <span className="text-base font-bold">{formatMoney(totalCents, currency)}</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
       {/* Product Detail Modal */}
       {selectedProduct && (() => {
-        const qty = getQty(selectedProduct.id);
+        const variantOptions = parseProductVariants(selectedProduct.variants, selectedProduct.priceCents);
+        const activeOption =
+          variantOptions.length > 0
+            ? (variantOptions.find((v) => v.name === selectedVariant) ?? variantOptions[0])
+            : null;
+        const activeVariant = activeOption?.name ?? null;
+        const activePriceCents = activeOption?.priceCents ?? selectedProduct.priceCents;
+        const hasDifferentPrices = new Set(variantOptions.map((v) => v.priceCents)).size > 1;
+        const qty = getQty(selectedProduct.id, activeVariant);
         const outOfStock = selectedProduct.stock <= 0;
         const onSale =
           selectedProduct.compareAtPriceCents !== null &&
-          selectedProduct.compareAtPriceCents > selectedProduct.priceCents;
+          selectedProduct.compareAtPriceCents > activePriceCents;
 
         return (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-0 sm:items-center sm:p-4 backdrop-blur-xs">
@@ -343,7 +399,7 @@ export default function StorefrontPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold text-sky-600">
-                      {formatMoney(selectedProduct.priceCents, selectedProduct.currency)}
+                      {formatMoney(activePriceCents, selectedProduct.currency)}
                     </p>
                     {onSale && selectedProduct.compareAtPriceCents && (
                       <p className="text-xs text-slate-400 line-through">
@@ -363,12 +419,47 @@ export default function StorefrontPage() {
                   {outOfStock ? t('outOfStock') : `${selectedProduct.stock} ${t('inStock')}`}
                 </p>
 
+                {variantOptions.length > 0 && (
+                  <div className="mt-3">
+                    <p className="mb-1.5 text-xs font-semibold text-slate-600">
+                      {t('selectOption')} ({variantOptions.length} {lang === 'km' ? 'ទំហំ' : variantOptions.length === 1 ? 'size' : 'sizes'})
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {variantOptions.map((opt) => {
+                        const optQty = getQty(selectedProduct.id, opt.name);
+                        return (
+                          <button
+                            key={opt.name}
+                            type="button"
+                            onClick={() => setSelectedVariant(opt.name)}
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                              activeVariant === opt.name
+                                ? 'border-sky-500 bg-sky-50 text-sky-700'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {opt.name}
+                            {hasDifferentPrices && (
+                              <span className="ml-1 opacity-75">({formatMoney(opt.priceCents, selectedProduct.currency)})</span>
+                            )}
+                            {optQty > 0 && (
+                              <span className="ml-1.5 rounded-full bg-sky-600 px-1.5 py-0.2 text-[10px] font-bold text-white">
+                                ×{optQty}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="mt-4">
                   {qty === 0 ? (
                     <button
                       type="button"
                       disabled={outOfStock}
-                      onClick={() => addItem(selectedProduct)}
+                      onClick={() => addItem({ ...selectedProduct, priceCents: activePriceCents }, activeVariant)}
                       className="btn-press w-full rounded-xl bg-sky-500 py-3 text-sm font-bold text-white hover:bg-sky-600 disabled:bg-slate-100 disabled:text-slate-300"
                     >
                       {outOfStock ? t('outOfStock') : t('addToCart')}
@@ -377,7 +468,7 @@ export default function StorefrontPage() {
                     <div className="flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50 px-3 py-1.5">
                       <button
                         type="button"
-                        onClick={() => updateQuantity(selectedProduct.id, qty - 1)}
+                        onClick={() => updateQuantity(selectedProduct.id, qty - 1, activeVariant)}
                         className="rounded-lg p-2 text-sky-700 hover:bg-sky-100"
                         aria-label="Decrease"
                       >
@@ -387,7 +478,7 @@ export default function StorefrontPage() {
                       <button
                         type="button"
                         disabled={qty >= selectedProduct.stock}
-                        onClick={() => updateQuantity(selectedProduct.id, qty + 1)}
+                        onClick={() => updateQuantity(selectedProduct.id, qty + 1, activeVariant)}
                         className="rounded-lg p-2 text-sky-700 hover:bg-sky-100 disabled:opacity-30"
                         aria-label="Increase"
                       >

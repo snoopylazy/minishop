@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/prisma/db';
 import { getAuthContext, hasRole } from '@/lib/telegram-auth';
 import { createOrderPaymentQR } from '@/lib/payment';
+import { resolveVariantPriceCents } from '@/lib/variants';
 
 export async function GET(request: Request) {
   const auth = await getAuthContext(request);
@@ -16,8 +17,9 @@ export async function GET(request: Request) {
   const offset = (page - 1) * limit;
 
   const isStaff = hasRole(auth.staffRole, ['super_admin', 'admin', 'seller']);
+  const mineOnly = searchParams.get('mine') === '1';
 
-  const all = isStaff
+  const all = isStaff && !mineOnly
     ? await db.orm.public.Order
         .include('items')
         .include('payments')
@@ -42,11 +44,12 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json()) as {
-    items?: Array<{ productId: number; quantity: number }>;
+    items?: Array<{ productId: number; quantity: number; variant?: string | null }>;
     phone?: string;
     address?: string;
     note?: string;
     customerName?: string;
+    promoCode?: string;
   };
 
   if (!Array.isArray(body.items) || body.items.length === 0) {
@@ -76,6 +79,29 @@ export async function POST(request: Request) {
 
   const productMap = new Map(products.map((p) => [p.id, p]));
 
+  const totalQtyByProduct = new Map<number, number>();
+  for (const item of body.items) {
+    const qty = Math.round(Number(item.quantity));
+    if (!Number.isInteger(qty) || qty <= 0) {
+      return NextResponse.json({ error: 'Invalid item quantity' }, { status: 400 });
+    }
+    const pid = Number(item.productId);
+    totalQtyByProduct.set(pid, (totalQtyByProduct.get(pid) ?? 0) + qty);
+  }
+
+  for (const [pid, totalQty] of totalQtyByProduct.entries()) {
+    const product = productMap.get(pid);
+    if (!product) {
+      return NextResponse.json({ error: `Product ${pid} not found` }, { status: 404 });
+    }
+    if (product.stock < totalQty) {
+      return NextResponse.json(
+        { error: `Insufficient stock for ${product.name} (${product.stock} left)` },
+        { status: 400 },
+      );
+    }
+  }
+
   let totalCents = 0;
   let currency = 'USD';
   const resolvedItems: Array<{
@@ -87,28 +113,42 @@ export async function POST(request: Request) {
 
   for (const item of body.items) {
     const qty = Math.round(Number(item.quantity));
-    if (!Number.isInteger(qty) || qty <= 0) {
-      return NextResponse.json({ error: 'Invalid item quantity' }, { status: 400 });
-    }
-    const product = productMap.get(Number(item.productId));
-    if (!product) {
-      return NextResponse.json({ error: `Product ${item.productId} not found` }, { status: 404 });
-    }
-    if (product.stock < qty) {
-      return NextResponse.json(
-        { error: `Insufficient stock for ${product.name}` },
-        { status: 400 },
-      );
-    }
+    const product = productMap.get(Number(item.productId))!;
     currency = product.currency;
-    totalCents += product.priceCents * qty;
+    const variantLabel = item.variant?.trim();
+    const unitPriceCents = resolveVariantPriceCents(product.variants, product.priceCents, variantLabel);
+    totalCents += unitPriceCents * qty;
     resolvedItems.push({
       productId: product.id,
-      productName: product.name,
+      productName: variantLabel ? `${product.name} (${variantLabel})` : product.name,
       quantity: qty,
-      unitPriceCents: product.priceCents,
+      unitPriceCents,
     });
   }
+
+  let appliedPromoCode: string | null = null;
+  let discountCents = 0;
+  if (body.promoCode?.trim()) {
+    const code = body.promoCode.trim().toUpperCase();
+    const promo = await db.orm.public.PromoCode.where({ code }).first();
+    if (
+      promo &&
+      promo.isActive &&
+      (!promo.maxUses || promo.usedCount < promo.maxUses) &&
+      (!promo.minOrderCents || totalCents >= promo.minOrderCents)
+    ) {
+      discountCents =
+        promo.discountType === 'percent'
+          ? Math.round((totalCents * promo.discountValue) / 100)
+          : Math.min(totalCents, promo.discountValue);
+      appliedPromoCode = promo.code;
+      await db.orm.public.PromoCode.where({ id: promo.id }).update({
+        usedCount: promo.usedCount + 1,
+      });
+    }
+  }
+
+  const discountedSubtotal = Math.max(0, totalCents - discountCents);
 
   const shopSettings = await db.orm.public.ShopSettings
     .orderBy((s) => s.id.asc())
@@ -119,11 +159,11 @@ export async function POST(request: Request) {
   if (
     deliveryFeeCents > 0 &&
     shopSettings?.freeDeliveryThresholdCents &&
-    totalCents >= shopSettings.freeDeliveryThresholdCents
+    discountedSubtotal >= shopSettings.freeDeliveryThresholdCents
   ) {
     deliveryFeeCents = 0;
   }
-  const grandTotalCents = totalCents + deliveryFeeCents;
+  const grandTotalCents = discountedSubtotal + deliveryFeeCents;
 
   const orderCode = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto
     .randomBytes(2)
@@ -138,6 +178,8 @@ export async function POST(request: Request) {
     phone: body.phone.trim(),
     address: body.address.trim(),
     note: body.note?.trim() || null,
+    promoCode: appliedPromoCode,
+    discountCents,
     totalCents: grandTotalCents,
     currency,
     paymentStatus: 'pending',

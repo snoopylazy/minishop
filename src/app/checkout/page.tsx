@@ -7,6 +7,7 @@ import { TopNav } from '@/components/TopNav';
 import { useCart } from '@/components/CartContext';
 import { formatMoney, getTelegramAuthHeaders } from '@/lib/client-telegram';
 import { useLang } from '@/components/LanguageContext';
+import { useUI } from '@/components/UIContext';
 
 interface CreatedPayment {
   orderId: number;
@@ -28,12 +29,17 @@ const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 tracking-w
 export default function CheckoutPage() {
   const { items, totalCents, currency, updateQuantity, clearCart } = useCart();
   const { t } = useLang();
+  const { confirm, toast } = useUI();
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [note, setNote] = useState('');
   const [deliveryFeeCents, setDeliveryFeeCents] = useState(0);
   const [freeThresholdCents, setFreeThresholdCents] = useState<number | null>(null);
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountCents: number } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [applyingPromo, setApplyingPromo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<CreatedPayment | null>(null);
@@ -66,11 +72,13 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, []);
 
+  const discountCents = appliedPromo ? Math.min(totalCents, appliedPromo.discountCents) : 0;
+  const discountedSubtotal = Math.max(0, totalCents - discountCents);
   const effectiveDeliveryFee =
-    deliveryFeeCents > 0 && freeThresholdCents && totalCents >= freeThresholdCents
+    deliveryFeeCents > 0 && freeThresholdCents && discountedSubtotal >= freeThresholdCents
       ? 0
       : deliveryFeeCents;
-  const grandTotalCents = totalCents + effectiveDeliveryFee;
+  const grandTotalCents = discountedSubtotal + effectiveDeliveryFee;
 
   // Poll payment status every 3 seconds once QR is displayed
   useEffect(() => {
@@ -111,7 +119,8 @@ export default function CheckoutPage() {
           phone,
           address,
           note,
-          items: items.map((i) => ({ productId: i.id, quantity: i.quantity })),
+          promoCode: appliedPromo?.code,
+          items: items.map((i) => ({ productId: i.id, quantity: i.quantity, variant: i.variant ?? null })),
         }),
       });
 
@@ -220,7 +229,7 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-24">
       <TopNav />
 
       <main className="mx-auto max-w-xl px-4 py-5">
@@ -335,13 +344,15 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!window.confirm(`Cancel order ${paymentInfo.orderCode}?`)) return;
+                    const ok = await confirm(`Cancel order ${paymentInfo.orderCode}?`);
+                    if (!ok) return;
                     const res = await fetch(`/api/orders/${paymentInfo.orderId}`, {
                       method: 'DELETE',
                       headers: getTelegramAuthHeaders(),
                     });
                     if (res.ok) {
                       setPaymentInfo(null);
+                      toast('Order cancelled', 'info');
                     }
                   }}
                   className="w-full rounded-xl py-2 text-xs font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
@@ -372,9 +383,16 @@ export default function CheckoutPage() {
               </div>
               <div className="divide-y divide-slate-50 px-4">
                 {items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-2 py-2.5 text-sm">
+                  <div key={`${item.id}-${item.variant ?? 'default'}`} className="flex items-center justify-between gap-2 py-2.5 text-sm">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-slate-800">{item.name}</p>
+                      <p className="truncate font-medium text-slate-800">
+                        {item.name}
+                        {item.variant && (
+                          <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {item.variant}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-slate-400">
                         {formatMoney(item.priceCents, item.currency)} {t('each')}
                       </p>
@@ -382,7 +400,7 @@ export default function CheckoutPage() {
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity - 1, item.variant)}
                         className="rounded-lg border border-slate-200 p-1 text-slate-600 hover:bg-slate-100"
                         aria-label="Decrease"
                       >
@@ -394,7 +412,7 @@ export default function CheckoutPage() {
                       <button
                         type="button"
                         disabled={item.quantity >= item.stock}
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity + 1, item.variant)}
                         className="rounded-lg border border-slate-200 p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                         aria-label="Increase"
                       >
@@ -402,7 +420,7 @@ export default function CheckoutPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => updateQuantity(item.id, 0)}
+                        onClick={() => updateQuantity(item.id, 0, item.variant)}
                         className="ml-1 rounded-lg p-1 text-rose-400 hover:bg-rose-50 hover:text-rose-600"
                         aria-label="Remove item"
                       >
@@ -415,11 +433,75 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Promo Code Input */}
+              <div className="border-t border-slate-100 px-4 py-3">
+                {appliedPromo ? (
+                  <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    <span>Promo {appliedPromo.code} applied (-{formatMoney(discountCents, currency)})</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedPromo(null);
+                        setPromoInput('');
+                      }}
+                      className="text-rose-500 hover:underline"
+                    >
+                      {t('remove')}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoInput}
+                      onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                      placeholder={t('promoPlaceholder')}
+                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-mono uppercase outline-none focus:border-sky-400 focus:bg-white"
+                    />
+                    <button
+                      type="button"
+                      disabled={applyingPromo || !promoInput.trim()}
+                      onClick={async () => {
+                        setPromoError(null);
+                        setApplyingPromo(true);
+                        try {
+                          const res = await fetch('/api/promos/validate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ code: promoInput, subtotalCents: totalCents }),
+                          });
+                          const data = await res.json();
+                          if (res.ok && data.valid) {
+                            setAppliedPromo({ code: data.code, discountCents: data.discountCents });
+                            toast(`Applied ${data.code}!`, 'success');
+                          } else {
+                            setPromoError(data.error ?? 'Invalid promo code');
+                          }
+                        } finally {
+                          setApplyingPromo(false);
+                        }
+                      }}
+                      className="rounded-xl bg-slate-800 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-900 disabled:opacity-40"
+                    >
+                      {applyingPromo ? '…' : t('applyBtn')}
+                    </button>
+                  </div>
+                )}
+                {promoError && <p className="mt-1.5 text-[11px] text-rose-600">{promoError}</p>}
+              </div>
+
               <div className="space-y-1.5 border-t border-slate-100 bg-slate-50 px-4 py-3 text-sm">
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>{t('subtotal')}</span>
                   <span>{formatMoney(totalCents, currency)}</span>
                 </div>
+                {discountCents > 0 && (
+                  <div className="flex items-center justify-between text-xs font-semibold text-emerald-600">
+                    <span>{t('discountLabel')} ({appliedPromo?.code})</span>
+                    <span>-{formatMoney(discountCents, currency)}</span>
+                  </div>
+                )}
                 {deliveryFeeCents > 0 && (
                   <div className="flex items-center justify-between text-xs text-slate-500">
                     <span>
@@ -456,7 +538,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>{t('phone')} <span className="text-rose-400">*</span></label>
+                  <label className={labelClass}>{t('phone')} <span className="text-rose-500">*</span></label>
                   <input
                     type="tel"
                     required
@@ -468,7 +550,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div>
-                  <label className={labelClass}>{t('address')} <span className="text-rose-400">*</span></label>
+                  <label className={labelClass}>{t('address')} <span className="text-rose-500">*</span></label>
                   <textarea
                     required
                     rows={3}

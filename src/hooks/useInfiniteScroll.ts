@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Calls `onLoadMore` whenever the sentinel element (returned ref) enters the viewport.
@@ -7,7 +7,10 @@ import { useEffect, useRef, useCallback } from 'react';
 export function useInfiniteScroll(onLoadMore: () => void, hasMore: boolean) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const stableLoad = useRef(onLoadMore);
-  stableLoad.current = onLoadMore;
+
+  useEffect(() => {
+    stableLoad.current = onLoadMore;
+  }, [onLoadMore]);
 
   useEffect(() => {
     const el = sentinelRef.current;

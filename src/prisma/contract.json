@@ -8,6 +8,10 @@
       "model": "AuditLog",
       "namespace": "public"
     },
+    "Category": {
+      "model": "Category",
+      "namespace": "public"
+    },
     "Order": {
       "model": "Order",
       "namespace": "public"
@@ -22,6 +26,10 @@
     },
     "Product": {
       "model": "Product",
+      "namespace": "public"
+    },
+    "PromoCode": {
+      "model": "PromoCode",
       "namespace": "public"
     },
     "ShopSettings": {
@@ -141,6 +149,80 @@
               "table": "AuditLog"
             }
           },
+          "Category": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "isActive": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "name": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "nameKm": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "sortOrder": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isActive": {
+                  "column": "isActive"
+                },
+                "name": {
+                  "column": "name"
+                },
+                "nameKm": {
+                  "column": "nameKm"
+                },
+                "sortOrder": {
+                  "column": "sortOrder"
+                }
+              },
+              "namespaceId": "public",
+              "table": "Category"
+            }
+          },
           "Order": {
             "fields": {
               "address": {
@@ -188,6 +270,13 @@
                   "kind": "scalar"
                 }
               },
+              "discountCents": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
               "handledByTelegramId": {
                 "nullable": true,
                 "type": {
@@ -232,6 +321,13 @@
               },
               "phone": {
                 "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "promoCode": {
+                "nullable": true,
                 "type": {
                   "codecId": "pg/text@1",
                   "kind": "scalar"
@@ -307,6 +403,9 @@
                 "customerUsername": {
                   "column": "customerUsername"
                 },
+                "discountCents": {
+                  "column": "discountCents"
+                },
                 "handledByTelegramId": {
                   "column": "handledByTelegramId"
                 },
@@ -327,6 +426,9 @@
                 },
                 "phone": {
                   "column": "phone"
+                },
+                "promoCode": {
+                  "column": "promoCode"
                 },
                 "totalCents": {
                   "column": "totalCents"
@@ -668,6 +770,13 @@
                     "precision": 3
                   }
                 }
+              },
+              "variants": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
               }
             },
             "relations": {
@@ -724,10 +833,117 @@
                 },
                 "updatedAt": {
                   "column": "updatedAt"
+                },
+                "variants": {
+                  "column": "variants"
                 }
               },
               "namespaceId": "public",
               "table": "Product"
+            }
+          },
+          "PromoCode": {
+            "fields": {
+              "code": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "discountType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "discountValue": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "isActive": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "maxUses": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "minOrderCents": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "usedCount": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "code": {
+                  "column": "code"
+                },
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "discountType": {
+                  "column": "discountType"
+                },
+                "discountValue": {
+                  "column": "discountValue"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "isActive": {
+                  "column": "isActive"
+                },
+                "maxUses": {
+                  "column": "maxUses"
+                },
+                "minOrderCents": {
+                  "column": "minOrderCents"
+                },
+                "usedCount": {
+                  "column": "usedCount"
+                }
+              },
+              "namespaceId": "public",
+              "table": "PromoCode"
             }
           },
           "ShopSettings": {
@@ -1028,6 +1244,73 @@
               },
               "uniques": []
             },
+            "Category": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nullable": false
+                },
+                "isActive": {
+                  "codecId": "pg/bool@1",
+                  "dataType": "pg/bool",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nullable": false
+                },
+                "name": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "nameKm": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
+                "sortOrder": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "name"
+                  ]
+                }
+              ]
+            },
             "Order": {
               "columns": {
                 "address": {
@@ -1070,6 +1353,15 @@
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
                   "nullable": true
+                },
+                "discountCents": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nullable": false
                 },
                 "handledByTelegramId": {
                   "codecId": "pg/text@1",
@@ -1117,6 +1409,11 @@
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
                   "nullable": false
+                },
+                "promoCode": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
                 },
                 "totalCents": {
                   "codecId": "pg/int4@1",
@@ -1451,6 +1748,11 @@
                   "typeParams": {
                     "precision": 3
                   }
+                },
+                "variants": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
                 }
               },
               "foreignKeys": [],
@@ -1461,6 +1763,92 @@
                 ]
               },
               "uniques": []
+            },
+            "PromoCode": {
+              "columns": {
+                "code": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "createdAt": {
+                  "codecId": "pg/timestamptz-date@1",
+                  "dataType": "pg/timestamptz",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "discountType": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "default": {
+                    "kind": "literal",
+                    "value": "percent"
+                  },
+                  "nullable": false
+                },
+                "discountValue": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nullable": false
+                },
+                "isActive": {
+                  "codecId": "pg/bool@1",
+                  "dataType": "pg/bool",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nullable": false
+                },
+                "maxUses": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "nullable": true
+                },
+                "minOrderCents": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "nullable": true
+                },
+                "usedCount": {
+                  "codecId": "pg/int4@1",
+                  "dataType": "pg/int4",
+                  "default": {
+                    "kind": "literal",
+                    "value": 0
+                  },
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "code"
+                  ]
+                }
+              ]
             },
             "ShopSettings": {
               "columns": {
@@ -1634,10 +2022,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "3f89b52cbcbd3fd7d487e87274f33e2573dcd383a9fb284bd579404509bb8b37"
+    "storageHash": "66001fb8a77be531d7a0dd2fbf00ba1ae7ec8a98d0c8535d45f4a0d90f8cf965"
   },
   "execution": {
-    "executionHash": "9aec8d3322ebf133c2040a97a2d8570fd629ed344e89268536c67f3e7aee1042",
+    "executionHash": "89017af37719218bb6e747c04d09b68fa86a0ce56d52e17faf160421cca32e8e",
     "mutations": {
       "defaults": [
         {
@@ -1650,6 +2038,20 @@
           },
           "ref": {
             "entry": "AuditLog",
+            "field": "createdAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator",
+            "params": {
+              "precision": 3
+            }
+          },
+          "ref": {
+            "entry": "Category",
             "field": "createdAt",
             "namespace": "public"
           }
@@ -1735,6 +2137,20 @@
           "ref": {
             "entry": "Product",
             "field": "updatedAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampNow",
+            "kind": "generator",
+            "params": {
+              "precision": 3
+            }
+          },
+          "ref": {
+            "entry": "PromoCode",
+            "field": "createdAt",
             "namespace": "public"
           }
         },
